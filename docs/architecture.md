@@ -548,10 +548,16 @@ bd mol burn gt-abc123.exec-001           # Discard wisps without digest
 **Wisp storage:**
 
 Wisps are stored in a per-rig ephemeral database:
-- `<rig>/.beads-ephemeral/` - Separate from permanent beads
+- `<rig>/.beads-ephemeral/` - Separate from permanent beads, **gitignored**
 - Fast writes, no sync overhead
 - Auto-cleaned on squash/burn
 - Digests write to permanent beads
+
+**See**: [wisp-architecture.md](wisp-architecture.md) for full specification including:
+- Canonical storage locations
+- Role assignments (which agents use wisps)
+- Patrol pattern implementation
+- Beads implementation requirements
 
 **Patrols use wisps:**
 
