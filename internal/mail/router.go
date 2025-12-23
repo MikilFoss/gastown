@@ -141,9 +141,20 @@ func (r *Router) Send(msg *Message) error {
 	}
 
 	// Notify recipient if they have an active session
-	_ = r.notifyRecipient(msg)
+	// Skip notification for self-mail (handoffs to future-self don't need present-self notified)
+	if !isSelfMail(msg.From, msg.To) {
+		_ = r.notifyRecipient(msg)
+	}
 
 	return nil
+}
+
+// isSelfMail returns true if sender and recipient are the same identity.
+// Normalizes addresses by removing trailing slashes for comparison.
+func isSelfMail(from, to string) bool {
+	fromNorm := strings.TrimSuffix(from, "/")
+	toNorm := strings.TrimSuffix(to, "/")
+	return fromNorm == toNorm
 }
 
 // GetMailbox returns a Mailbox for the given address.
