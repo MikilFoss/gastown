@@ -63,12 +63,14 @@ var (
 )
 
 func init() {
+	// Flags for attaching work (gt hook <bead-id>)
 	hookCmd.Flags().StringVarP(&hookSubject, "subject", "s", "", "Subject for handoff mail (optional)")
 	hookCmd.Flags().StringVarP(&hookMessage, "message", "m", "", "Message for handoff mail (optional)")
 	hookCmd.Flags().BoolVarP(&hookDryRun, "dry-run", "n", false, "Show what would be done")
 	hookCmd.Flags().BoolVarP(&hookForce, "force", "f", false, "Replace existing incomplete pinned bead")
 
-	// Add status subcommand (shares --json flag with mol status)
+	// --json flag for status output (used when no args, i.e., gt hook --json)
+	hookCmd.Flags().BoolVar(&moleculeJSON, "json", false, "Output as JSON (for status)")
 	hookStatusCmd.Flags().BoolVar(&moleculeJSON, "json", false, "Output as JSON")
 	hookCmd.AddCommand(hookStatusCmd)
 
