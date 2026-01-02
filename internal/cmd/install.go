@@ -195,13 +195,13 @@ func runInstall(cmd *cobra.Command, args []string) error {
 	}
 
 	// Initialize town-level beads database (optional)
-	// Town beads (gm- prefix) stores mayor mail, cross-rig coordination, and handoffs.
+	// Town beads (hq- prefix) stores mayor mail, cross-rig coordination, and handoffs.
 	// Rig beads are separate and have their own prefixes.
 	if !installNoBeads {
 		if err := initTownBeads(absPath); err != nil {
 			fmt.Printf("   %s Could not initialize town beads: %v\n", style.Dim.Render("⚠"), err)
 		} else {
-			fmt.Printf("   ✓ Initialized .beads/ (town-level beads with gm- prefix)\n")
+			fmt.Printf("   ✓ Initialized .beads/ (town-level beads with hq- prefix)\n")
 		}
 
 		// NOTE: Agent beads (gt-deacon, gt-mayor) are created by gt rig add,
@@ -276,10 +276,10 @@ func writeJSON(path string, data interface{}) error {
 }
 
 // initTownBeads initializes town-level beads database using bd init.
-// Town beads use the "gm-" prefix for mayor mail and cross-rig coordination.
+// Town beads use the "hq-" prefix for mayor mail and cross-rig coordination.
 func initTownBeads(townPath string) error {
-	// Run: bd init --prefix gm
-	cmd := exec.Command("bd", "init", "--prefix", "gm")
+	// Run: bd init --prefix hq
+	cmd := exec.Command("bd", "init", "--prefix", "hq")
 	cmd.Dir = townPath
 
 	output, err := cmd.CombinedOutput()
