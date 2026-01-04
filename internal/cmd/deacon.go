@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/steveyegge/gastown/internal/beads"
 	"github.com/steveyegge/gastown/internal/config"
 	"github.com/steveyegge/gastown/internal/constants"
 	"github.com/steveyegge/gastown/internal/deacon"
@@ -21,8 +22,10 @@ import (
 	"github.com/steveyegge/gastown/internal/workspace"
 )
 
-// DeaconSessionName is the tmux session name for the Deacon.
-const DeaconSessionName = "gt-deacon"
+// getDeaconSessionName returns the Deacon session name.
+func getDeaconSessionName() string {
+	return session.DeaconSessionName()
+}
 
 var deaconCmd = &cobra.Command{
 	Use:     "deacon",
@@ -274,8 +277,10 @@ func init() {
 func runDeaconStart(cmd *cobra.Command, args []string) error {
 	t := tmux.NewTmux()
 
+	sessionName := getDeaconSessionName()
+
 	// Check if session already exists
-	running, err := t.HasSession(DeaconSessionName)
+	running, err := t.HasSession(sessionName)
 	if err != nil {
 		return fmt.Errorf("checking session: %w", err)
 	}
@@ -283,7 +288,7 @@ func runDeaconStart(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Deacon session already running. Attach with: gt deacon attach")
 	}
 
-	if err := startDeaconSession(t); err != nil {
+	if err := startDeaconSession(t, sessionName); err != nil {
 		return err
 	}
 
@@ -295,7 +300,7 @@ func runDeaconStart(cmd *cobra.Command, args []string) error {
 }
 
 // startDeaconSession creates and initializes the Deacon tmux session.
-func startDeaconSession(t *tmux.Tmux) error {
+func startDeaconSession(t *tmux.Tmux, sessionName string) error {
 	// Find workspace root
 	townRoot, err := workspace.FindFromCwdOrError()
 	if err != nil {
@@ -317,35 +322,35 @@ func startDeaconSession(t *tmux.Tmux) error {
 
 	// Create session in deacon directory
 	fmt.Println("Starting Deacon session...")
-	if err := t.NewSession(DeaconSessionName, deaconDir); err != nil {
+	if err := t.NewSession(sessionName, deaconDir); err != nil {
 		return fmt.Errorf("creating session: %w", err)
 	}
 
 	// Set environment (non-fatal: session works without these)
-	_ = t.SetEnvironment(DeaconSessionName, "GT_ROLE", "deacon")
-	_ = t.SetEnvironment(DeaconSessionName, "BD_ACTOR", "deacon")
+	_ = t.SetEnvironment(sessionName, "GT_ROLE", "deacon")
+	_ = t.SetEnvironment(sessionName, "BD_ACTOR", "deacon")
 
 	// Apply Deacon theme (non-fatal: theming failure doesn't affect operation)
 	// Note: ConfigureGasTownSession includes cycle bindings
 	theme := tmux.DeaconTheme()
-	_ = t.ConfigureGasTownSession(DeaconSessionName, theme, "", "Deacon", "health-check")
+	_ = t.ConfigureGasTownSession(sessionName, theme, "", "Deacon", "health-check")
 
 	// Launch Claude directly (no shell respawn loop)
 	// Restarts are handled by daemon via ensureDeaconRunning on each heartbeat
 	// The startup hook handles context loading automatically
 	// Export GT_ROLE and BD_ACTOR in the command since tmux SetEnvironment only affects new panes
-	if err := t.SendKeys(DeaconSessionName, config.BuildAgentStartupCommand("deacon", "deacon", "", "")); err != nil {
+	if err := t.SendKeys(sessionName, config.BuildAgentStartupCommand("deacon", "deacon", "", "")); err != nil {
 		return fmt.Errorf("sending command: %w", err)
 	}
 
 	// Wait for Claude to start (non-fatal)
-	if err := t.WaitForCommand(DeaconSessionName, constants.SupportedShells, constants.ClaudeStartTimeout); err != nil {
+	if err := t.WaitForCommand(sessionName, constants.SupportedShells, constants.ClaudeStartTimeout); err != nil {
 		// Non-fatal
 	}
 	time.Sleep(constants.ShutdownNotifyDelay)
 
 	// Inject startup nudge for predecessor discovery via /resume
-	_ = session.StartupNudge(t, DeaconSessionName, session.StartupNudgeConfig{
+	_ = session.StartupNudge(t, sessionName, session.StartupNudgeConfig{
 		Recipient: "deacon",
 		Sender:    "daemon",
 		Topic:     "patrol",
@@ -355,7 +360,7 @@ func startDeaconSession(t *tmux.Tmux) error {
 	// Send the propulsion nudge to trigger autonomous patrol execution.
 	// Wait for beacon to be fully processed (needs to be separate prompt)
 	time.Sleep(2 * time.Second)
-	_ = t.NudgeSession(DeaconSessionName, session.PropulsionNudgeForRole("deacon")) // Non-fatal
+	_ = t.NudgeSession(sessionName, session.PropulsionNudgeForRole("deacon", deaconDir)) // Non-fatal
 
 	return nil
 }
@@ -363,8 +368,10 @@ func startDeaconSession(t *tmux.Tmux) error {
 func runDeaconStop(cmd *cobra.Command, args []string) error {
 	t := tmux.NewTmux()
 
+	sessionName := getDeaconSessionName()
+
 	// Check if session exists
-	running, err := t.HasSession(DeaconSessionName)
+	running, err := t.HasSession(sessionName)
 	if err != nil {
 		return fmt.Errorf("checking session: %w", err)
 	}
@@ -375,11 +382,11 @@ func runDeaconStop(cmd *cobra.Command, args []string) error {
 	fmt.Println("Stopping Deacon session...")
 
 	// Try graceful shutdown first (best-effort interrupt)
-	_ = t.SendKeysRaw(DeaconSessionName, "C-c")
+	_ = t.SendKeysRaw(sessionName, "C-c")
 	time.Sleep(100 * time.Millisecond)
 
 	// Kill the session
-	if err := t.KillSession(DeaconSessionName); err != nil {
+	if err := t.KillSession(sessionName); err != nil {
 		return fmt.Errorf("killing session: %w", err)
 	}
 
@@ -390,35 +397,39 @@ func runDeaconStop(cmd *cobra.Command, args []string) error {
 func runDeaconAttach(cmd *cobra.Command, args []string) error {
 	t := tmux.NewTmux()
 
+	sessionName := getDeaconSessionName()
+
 	// Check if session exists
-	running, err := t.HasSession(DeaconSessionName)
+	running, err := t.HasSession(sessionName)
 	if err != nil {
 		return fmt.Errorf("checking session: %w", err)
 	}
 	if !running {
 		// Auto-start if not running
 		fmt.Println("Deacon session not running, starting...")
-		if err := startDeaconSession(t); err != nil {
+		if err := startDeaconSession(t, sessionName); err != nil {
 			return err
 		}
 	}
 	// Session uses a respawn loop, so Claude restarts automatically if it exits
 
 	// Use shared attach helper (smart: links if inside tmux, attaches if outside)
-	return attachToTmuxSession(DeaconSessionName)
+	return attachToTmuxSession(sessionName)
 }
 
 func runDeaconStatus(cmd *cobra.Command, args []string) error {
 	t := tmux.NewTmux()
 
-	running, err := t.HasSession(DeaconSessionName)
+	sessionName := getDeaconSessionName()
+
+	running, err := t.HasSession(sessionName)
 	if err != nil {
 		return fmt.Errorf("checking session: %w", err)
 	}
 
 	if running {
 		// Get session info for more details
-		info, err := t.GetSessionInfo(DeaconSessionName)
+		info, err := t.GetSessionInfo(sessionName)
 		if err == nil {
 			status := "detached"
 			if info.Attached {
@@ -448,7 +459,9 @@ func runDeaconStatus(cmd *cobra.Command, args []string) error {
 func runDeaconRestart(cmd *cobra.Command, args []string) error {
 	t := tmux.NewTmux()
 
-	running, err := t.HasSession(DeaconSessionName)
+	sessionName := getDeaconSessionName()
+
+	running, err := t.HasSession(sessionName)
 	if err != nil {
 		return fmt.Errorf("checking session: %w", err)
 	}
@@ -457,7 +470,7 @@ func runDeaconRestart(cmd *cobra.Command, args []string) error {
 
 	if running {
 		// Kill existing session
-		if err := t.KillSession(DeaconSessionName); err != nil {
+		if err := t.KillSession(sessionName); err != nil {
 			style.PrintWarning("failed to kill session: %v", err)
 		}
 	}
@@ -1065,7 +1078,7 @@ func getPolecatStaleness(polecatPath string) time.Duration {
 }
 
 // nukeZombie cleans up a zombie polecat.
-func nukeZombie(townRoot string, z zombieInfo, t *tmux.Tmux) error {
+func nukeZombie(townRoot string, z zombieInfo, t *tmux.Tmux) error { //nolint:unparam // error return kept for future use
 	// Step 1: Kill tmux session if somehow still exists
 	if exists, _ := t.HasSession(z.sessionName); exists {
 		_ = t.KillSession(z.sessionName)
@@ -1106,12 +1119,13 @@ func notifyMayorOfWitnessFailure(townRoot string, zombies []zombieInfo) {
 
 // agentAddressToIDs converts an agent address to bead ID and session name.
 // Supports formats: "gastown/polecats/max", "gastown/witness", "deacon", "mayor"
+// Note: Town-level agents (Mayor, Deacon) use hq- prefix bead IDs stored in town beads.
 func agentAddressToIDs(address string) (beadID, sessionName string, err error) {
 	switch address {
 	case "deacon":
-		return "gt-deacon", DeaconSessionName, nil
+		return beads.DeaconBeadIDTown(), session.DeaconSessionName(), nil
 	case "mayor":
-		return "gt-mayor", "gt-mayor", nil
+		return beads.MayorBeadIDTown(), session.MayorSessionName(), nil
 	}
 
 	parts := strings.Split(address, "/")
@@ -1175,7 +1189,7 @@ func sendMail(townRoot, to, subject, body string) {
 }
 
 // updateAgentBeadState updates an agent bead's state.
-func updateAgentBeadState(townRoot, agent, state, reason string) {
+func updateAgentBeadState(townRoot, agent, state, _ string) { // reason unused but kept for API consistency
 	beadID, _, err := agentAddressToIDs(agent)
 	if err != nil {
 		return

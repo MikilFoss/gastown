@@ -135,7 +135,7 @@ func categorizeSession(name string) *AgentSession {
 	session := &AgentSession{Name: name}
 	suffix := strings.TrimPrefix(name, "gt-")
 
-	// Town-level agents
+	// Town-level agents: gt-mayor, gt-deacon (simple format, one per machine)
 	if suffix == "mayor" {
 		session.Type = AgentMayor
 		return session

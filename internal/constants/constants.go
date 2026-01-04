@@ -64,9 +64,6 @@ const (
 	// FileTownJSON is the town configuration file in mayor/.
 	FileTownJSON = "town.json"
 
-	// FileStateJSON is the agent state file.
-	FileStateJSON = "state.json"
-
 	// FileConfigJSON is the general config file.
 	FileConfigJSON = "config.json"
 
@@ -90,13 +87,9 @@ const (
 )
 
 // Tmux session names.
+// Mayor and Deacon use simple session names: gt-mayor, gt-deacon (one per machine).
+// Use session.MayorSessionName() and session.DeaconSessionName().
 const (
-	// SessionMayor is the tmux session name for the mayor.
-	SessionMayor = "gt-mayor"
-
-	// SessionDeacon is the tmux session name for the deacon.
-	SessionDeacon = "gt-deacon"
-
 	// SessionPrefix is the prefix for all Gas Town tmux sessions.
 	SessionPrefix = "gt-"
 )
@@ -178,11 +171,6 @@ func MayorRigsPath(townRoot string) string {
 // MayorTownPath returns the path to town.json within a town root.
 func MayorTownPath(townRoot string) string {
 	return townRoot + "/" + DirMayor + "/" + FileTownJSON
-}
-
-// MayorStatePath returns the path to mayor state.json within a town root.
-func MayorStatePath(townRoot string) string {
-	return townRoot + "/" + DirMayor + "/" + FileStateJSON
 }
 
 // RigMayorPath returns the path to mayor/rig within a rig.

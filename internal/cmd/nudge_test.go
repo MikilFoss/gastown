@@ -5,7 +5,7 @@ import (
 )
 
 func TestResolveNudgePattern(t *testing.T) {
-	// Create test agent sessions
+	// Create test agent sessions (no Town field for mayor/deacon anymore)
 	agents := []*AgentSession{
 		{Name: "gt-mayor", Type: AgentMayor},
 		{Name: "gt-deacon", Type: AgentDeacon},

@@ -9,6 +9,7 @@ func TestAddressToAgentBeadID(t *testing.T) {
 		address  string
 		expected string
 	}{
+		// Mayor and deacon use simple session names (no town qualifier)
 		{"mayor", "gt-mayor"},
 		{"deacon", "gt-deacon"},
 		{"gastown/witness", "gt-gastown-witness"},

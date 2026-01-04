@@ -618,12 +618,13 @@ func runCostsRecord(cmd *cobra.Command, args []string) error {
 //   - Polecats: gt-{rig}-{polecat} (e.g., gt-gastown-toast)
 //   - Crew: gt-{rig}-crew-{crew} (e.g., gt-gastown-crew-max)
 //   - Witness/Refinery: gt-{rig}-{role} (e.g., gt-gastown-witness)
-//   - Mayor/Deacon: gt-{role} (e.g., gt-mayor)
+//   - Mayor/Deacon: gt-{town}-{role} (e.g., gt-ai-mayor)
 func deriveSessionName() string {
 	role := os.Getenv("GT_ROLE")
 	rig := os.Getenv("GT_RIG")
 	polecat := os.Getenv("GT_POLECAT")
 	crew := os.Getenv("GT_CREW")
+	town := os.Getenv("GT_TOWN")
 
 	// Polecat: gt-{rig}-{polecat}
 	if polecat != "" && rig != "" {
@@ -635,9 +636,9 @@ func deriveSessionName() string {
 		return fmt.Sprintf("gt-%s-crew-%s", rig, crew)
 	}
 
-	// Global roles without rig: gt-{role}
-	if role != "" && rig == "" {
-		return fmt.Sprintf("gt-%s", role)
+	// Town-level roles (mayor, deacon): gt-{town}-{role}
+	if (role == "mayor" || role == "deacon") && town != "" {
+		return fmt.Sprintf("gt-%s-%s", town, role)
 	}
 
 	// Rig-based roles (witness, refinery): gt-{rig}-{role}

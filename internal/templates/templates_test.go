@@ -22,9 +22,12 @@ func TestRenderRole_Mayor(t *testing.T) {
 	}
 
 	data := RoleData{
-		Role:     "mayor",
-		TownRoot: "/test/town",
-		WorkDir:  "/test/town",
+		Role:          "mayor",
+		TownRoot:      "/test/town",
+		TownName:      "town",
+		WorkDir:       "/test/town",
+		MayorSession:  "gt-town-mayor",
+		DeaconSession: "gt-town-deacon",
 	}
 
 	output, err := tmpl.RenderRole("mayor", data)
@@ -51,11 +54,14 @@ func TestRenderRole_Polecat(t *testing.T) {
 	}
 
 	data := RoleData{
-		Role:     "polecat",
-		RigName:  "myrig",
-		TownRoot: "/test/town",
-		WorkDir:  "/test/town/myrig/polecats/TestCat",
-		Polecat:  "TestCat",
+		Role:          "polecat",
+		RigName:       "myrig",
+		TownRoot:      "/test/town",
+		TownName:      "town",
+		WorkDir:       "/test/town/myrig/polecats/TestCat",
+		Polecat:       "TestCat",
+		MayorSession:  "gt-town-mayor",
+		DeaconSession: "gt-town-deacon",
 	}
 
 	output, err := tmpl.RenderRole("polecat", data)
@@ -82,9 +88,12 @@ func TestRenderRole_Deacon(t *testing.T) {
 	}
 
 	data := RoleData{
-		Role:     "deacon",
-		TownRoot: "/test/town",
-		WorkDir:  "/test/town",
+		Role:          "deacon",
+		TownRoot:      "/test/town",
+		TownName:      "town",
+		WorkDir:       "/test/town",
+		MayorSession:  "gt-town-mayor",
+		DeaconSession: "gt-town-deacon",
 	}
 
 	output, err := tmpl.RenderRole("deacon", data)

@@ -21,15 +21,15 @@ const (
 // AgentIdentity represents a parsed Gas Town agent identity.
 type AgentIdentity struct {
 	Role Role   // mayor, deacon, witness, refinery, crew, polecat
-	Rig  string // empty for mayor/deacon
+	Rig  string // rig name (empty for mayor/deacon)
 	Name string // crew/polecat name (empty for mayor/deacon/witness/refinery)
 }
 
 // ParseSessionName parses a tmux session name into an AgentIdentity.
 //
 // Session name formats:
-//   - gt-mayor → Role: mayor
-//   - gt-deacon → Role: deacon
+//   - gt-mayor → Role: mayor (one per machine)
+//   - gt-deacon → Role: deacon (one per machine)
 //   - gt-<rig>-witness → Role: witness, Rig: <rig>
 //   - gt-<rig>-refinery → Role: refinery, Rig: <rig>
 //   - gt-<rig>-crew-<name> → Role: crew, Rig: <rig>, Name: <name>
@@ -48,15 +48,15 @@ func ParseSessionName(session string) (*AgentIdentity, error) {
 		return nil, fmt.Errorf("invalid session name %q: empty after prefix", session)
 	}
 
-	// Check for global roles first (no rig)
-	switch suffix {
-	case "mayor":
+	// Check for simple town-level roles (no rig qualifier)
+	if suffix == "mayor" {
 		return &AgentIdentity{Role: RoleMayor}, nil
-	case "deacon":
+	}
+	if suffix == "deacon" {
 		return &AgentIdentity{Role: RoleDeacon}, nil
 	}
 
-	// Parse rig-based roles
+	// Parse into parts for rig-level roles
 	parts := strings.Split(suffix, "-")
 	if len(parts) < 2 {
 		return nil, fmt.Errorf("invalid session name %q: expected rig-role format", session)

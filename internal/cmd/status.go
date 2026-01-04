@@ -170,6 +170,37 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	// Pre-fetch agent beads across all rig-specific beads DBs.
 	allAgentBeads := make(map[string]*beads.Issue)
 	allHookBeads := make(map[string]*beads.Issue)
+
+	// Fetch town-level agent beads (Mayor, Deacon) from town beads
+	townBeadsPath := beads.GetTownBeadsPath(townRoot)
+	townBeadsClient := beads.New(townBeadsPath)
+	townAgentBeads, _ := townBeadsClient.ListAgentBeads()
+	for id, issue := range townAgentBeads {
+		allAgentBeads[id] = issue
+	}
+
+	// Fetch hook beads from town beads
+	var townHookIDs []string
+	for _, issue := range townAgentBeads {
+		hookID := issue.HookBead
+		if hookID == "" {
+			fields := beads.ParseAgentFields(issue.Description)
+			if fields != nil {
+				hookID = fields.HookBead
+			}
+		}
+		if hookID != "" {
+			townHookIDs = append(townHookIDs, hookID)
+		}
+	}
+	if len(townHookIDs) > 0 {
+		townHookBeads, _ := townBeadsClient.ShowMultiple(townHookIDs)
+		for id, issue := range townHookBeads {
+			allHookBeads[id] = issue
+		}
+	}
+
+	// Fetch rig-level agent beads
 	for _, r := range rigs {
 		rigBeadsPath := filepath.Join(r.Path, "mayor", "rig")
 		rigBeads := beads.New(rigBeadsPath)
@@ -469,7 +500,7 @@ func outputStatusText(status TownStatus) error {
 }
 
 // renderAgentDetails renders full agent bead details
-func renderAgentDetails(agent AgentRuntime, indent string, hooks []AgentHookInfo, townRoot string) {
+func renderAgentDetails(agent AgentRuntime, indent string, hooks []AgentHookInfo, townRoot string) { //nolint:unparam // indent kept for future customization
 	// Line 1: Agent bead ID + status
 	// Reconcile bead state with tmux session state to surface mismatches
 	// States: "running" (active), "idle" (waiting), "stopped", "dead", etc.
@@ -645,7 +676,12 @@ func discoverRigHooks(r *rig.Rig, crews []string) []AgentHookInfo {
 // allAgentBeads is a preloaded map of agent beads for O(1) lookup.
 // allHookBeads is a preloaded map of hook beads for O(1) lookup.
 func discoverGlobalAgents(allSessions map[string]bool, allAgentBeads map[string]*beads.Issue, allHookBeads map[string]*beads.Issue, mailRouter *mail.Router, skipMail bool) []AgentRuntime {
+	// Get session names dynamically
+	mayorSession := getMayorSessionName()
+	deaconSession := getDeaconSessionName()
+
 	// Define agents to discover
+	// Note: Mayor and Deacon are town-level agents with hq- prefix bead IDs
 	agentDefs := []struct {
 		name    string
 		address string
@@ -653,8 +689,8 @@ func discoverGlobalAgents(allSessions map[string]bool, allAgentBeads map[string]
 		role    string
 		beadID  string
 	}{
-		{"mayor", "mayor/", MayorSessionName, "coordinator", "gt-mayor"},
-		{"deacon", "deacon/", DeaconSessionName, "health-check", "gt-deacon"},
+		{"mayor", "mayor/", mayorSession, "coordinator", beads.MayorBeadIDTown()},
+		{"deacon", "deacon/", deaconSession, "health-check", beads.DeaconBeadIDTown()},
 	}
 
 	agents := make([]AgentRuntime, len(agentDefs))

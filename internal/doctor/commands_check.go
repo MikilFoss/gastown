@@ -2,26 +2,17 @@ package doctor
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/steveyegge/gastown/internal/templates"
 )
 
-// CommandsCheck validates that crew/polecat workspaces have .claude/commands/ provisioned.
-// This ensures all agents have access to slash commands like /handoff.
+// CommandsCheck validates that town-level .claude/commands/ is provisioned.
+// All agents inherit these via Claude's directory traversal - no per-workspace copies needed.
 type CommandsCheck struct {
 	FixableCheck
-	missingWorkspaces []workspaceWithMissingCommands // Cached during Run for use in Fix
-}
-
-type workspaceWithMissingCommands struct {
-	path         string
-	rigName      string
-	workerName   string
-	workerType   string // "crew" or "polecat"
-	missingFiles []string
+	townRoot       string   // Cached for Fix
+	missingCommands []string // Cached during Run for use in Fix
 }
 
 // NewCommandsCheck creates a new commands check.
@@ -30,140 +21,55 @@ func NewCommandsCheck() *CommandsCheck {
 		FixableCheck: FixableCheck{
 			BaseCheck: BaseCheck{
 				CheckName:        "commands-provisioned",
-				CheckDescription: "Check .claude/commands/ is provisioned in crew/polecat workspaces",
+				CheckDescription: "Check .claude/commands/ is provisioned at town level",
 			},
 		},
 	}
 }
 
-// Run checks all crew and polecat workspaces for missing slash commands.
+// Run checks if town-level slash commands are provisioned.
 func (c *CommandsCheck) Run(ctx *CheckContext) *CheckResult {
-	c.missingWorkspaces = nil
+	c.townRoot = ctx.TownRoot
+	c.missingCommands = nil
 
-	workspaces := c.findAllWorkerDirs(ctx.TownRoot)
-	if len(workspaces) == 0 {
+	// Check town-level commands
+	missing, err := templates.MissingCommands(ctx.TownRoot)
+	if err != nil {
+		return &CheckResult{
+			Name:    c.Name(),
+			Status:  StatusWarning,
+			Message: fmt.Sprintf("Error checking town-level commands: %v", err),
+		}
+	}
+
+	if len(missing) == 0 {
+		// Get command names for the success message
+		names, _ := templates.CommandNames()
 		return &CheckResult{
 			Name:    c.Name(),
 			Status:  StatusOK,
-			Message: "No crew/polecat workspaces found",
+			Message: fmt.Sprintf("Town-level slash commands provisioned (%s)", strings.Join(names, ", ")),
 		}
 	}
 
-	var validCount int
-	var details []string
-
-	for _, ws := range workspaces {
-		missing, err := templates.MissingCommands(ws.path)
-		if err != nil {
-			details = append(details, fmt.Sprintf("%s/%s/%s: error checking commands: %v",
-				ws.rigName, ws.workerType, ws.workerName, err))
-			continue
-		}
-
-		if len(missing) > 0 {
-			c.missingWorkspaces = append(c.missingWorkspaces, workspaceWithMissingCommands{
-				path:         ws.path,
-				rigName:      ws.rigName,
-				workerName:   ws.workerName,
-				workerType:   ws.workerType,
-				missingFiles: missing,
-			})
-			details = append(details, fmt.Sprintf("%s/%s/%s: missing %s",
-				ws.rigName, ws.workerType, ws.workerName, strings.Join(missing, ", ")))
-		} else {
-			validCount++
-		}
-	}
-
-	if len(c.missingWorkspaces) == 0 {
-		return &CheckResult{
-			Name:    c.Name(),
-			Status:  StatusOK,
-			Message: fmt.Sprintf("All %d workspaces have slash commands provisioned", validCount),
-		}
-	}
-
+	c.missingCommands = missing
 	return &CheckResult{
 		Name:    c.Name(),
 		Status:  StatusWarning,
-		Message: fmt.Sprintf("%d workspace(s) missing slash commands (e.g., /handoff)", len(c.missingWorkspaces)),
-		Details: details,
+		Message: fmt.Sprintf("Missing town-level slash commands: %s", strings.Join(missing, ", ")),
+		Details: []string{
+			fmt.Sprintf("Expected at: %s/.claude/commands/", ctx.TownRoot),
+			"All agents inherit town-level commands via directory traversal",
+		},
 		FixHint: "Run 'gt doctor --fix' to provision missing commands",
 	}
 }
 
-// Fix provisions missing slash commands to workspaces.
+// Fix provisions missing slash commands at town level.
 func (c *CommandsCheck) Fix(ctx *CheckContext) error {
-	if len(c.missingWorkspaces) == 0 {
+	if len(c.missingCommands) == 0 {
 		return nil
 	}
 
-	var lastErr error
-	for _, ws := range c.missingWorkspaces {
-		if err := templates.ProvisionCommands(ws.path); err != nil {
-			lastErr = fmt.Errorf("%s/%s/%s: %w", ws.rigName, ws.workerType, ws.workerName, err)
-			continue
-		}
-	}
-
-	return lastErr
-}
-
-type workerDir struct {
-	path       string
-	rigName    string
-	workerName string
-	workerType string // "crew" or "polecat"
-}
-
-// findAllWorkerDirs finds all crew and polecat directories in the workspace.
-func (c *CommandsCheck) findAllWorkerDirs(townRoot string) []workerDir {
-	var dirs []workerDir
-
-	entries, err := os.ReadDir(townRoot)
-	if err != nil {
-		return dirs
-	}
-
-	for _, entry := range entries {
-		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") || entry.Name() == "mayor" {
-			continue
-		}
-
-		rigName := entry.Name()
-
-		// Check crew directory
-		crewPath := filepath.Join(townRoot, rigName, "crew")
-		if crewEntries, err := os.ReadDir(crewPath); err == nil {
-			for _, crew := range crewEntries {
-				if !crew.IsDir() || strings.HasPrefix(crew.Name(), ".") {
-					continue
-				}
-				dirs = append(dirs, workerDir{
-					path:       filepath.Join(crewPath, crew.Name()),
-					rigName:    rigName,
-					workerName: crew.Name(),
-					workerType: "crew",
-				})
-			}
-		}
-
-		// Check polecats directory
-		polecatsPath := filepath.Join(townRoot, rigName, "polecats")
-		if polecatEntries, err := os.ReadDir(polecatsPath); err == nil {
-			for _, polecat := range polecatEntries {
-				if !polecat.IsDir() || strings.HasPrefix(polecat.Name(), ".") {
-					continue
-				}
-				dirs = append(dirs, workerDir{
-					path:       filepath.Join(polecatsPath, polecat.Name()),
-					rigName:    rigName,
-					workerName: polecat.Name(),
-					workerType: "polecat",
-				})
-			}
-		}
-	}
-
-	return dirs
+	return templates.ProvisionCommands(c.townRoot)
 }

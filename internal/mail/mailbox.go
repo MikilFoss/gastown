@@ -112,7 +112,7 @@ func (m *Mailbox) listBeads() ([]*Message, error) {
 // listFromDir queries messages from a beads directory.
 // Returns messages where identity is the assignee OR a CC recipient.
 // Includes both open and hooked messages (hooked = auto-assigned handoff mail).
-func (m *Mailbox) listFromDir(beadsDir string) ([]*Message, error) {
+func (m *Mailbox) listFromDir(beadsDir string) ([]*Message, error) { //nolint:unparam // error return kept for future use
 	seen := make(map[string]bool)
 	var messages []*Message
 
@@ -346,7 +346,7 @@ func (m *Mailbox) closeInDir(id, beadsDir string) error {
 	if sessionID := os.Getenv("CLAUDE_SESSION_ID"); sessionID != "" {
 		args = append(args, "--session="+sessionID)
 	}
-	cmd := exec.Command("bd", args...)
+	cmd := exec.Command("bd", args...) //nolint:gosec // G204: bd is a trusted internal tool
 	cmd.Dir = m.workDir
 	cmd.Env = append(cmd.Environ(), "BEADS_DIR="+beadsDir)
 
@@ -506,7 +506,7 @@ func (m *Mailbox) appendToArchive(msg *Message) error {
 	}
 
 	// Open for append
-	file, err := os.OpenFile(archivePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(archivePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644) //nolint:gosec // G302: archive is non-sensitive operational data
 	if err != nil {
 		return err
 	}
@@ -740,7 +740,7 @@ func (m *Mailbox) appendLegacy(msg *Message) error {
 	}
 
 	// Open for append
-	file, err := os.OpenFile(m.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(m.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
 	}

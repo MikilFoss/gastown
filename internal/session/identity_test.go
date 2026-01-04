@@ -6,14 +6,14 @@ import (
 
 func TestParseSessionName(t *testing.T) {
 	tests := []struct {
-		name        string
-		session     string
-		wantRole    Role
-		wantRig     string
-		wantName    string
-		wantErr     bool
+		name     string
+		session  string
+		wantRole Role
+		wantRig  string
+		wantName string
+		wantErr  bool
 	}{
-		// Global roles (no rig)
+		// Town-level roles (simple gt-mayor, gt-deacon)
 		{
 			name:     "mayor",
 			session:  "gt-mayor",
@@ -104,7 +104,7 @@ func TestParseSessionName(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "just prefix",
+			name:    "just prefix single segment",
 			session: "gt-x",
 			wantErr: true,
 		},
@@ -238,14 +238,14 @@ func TestParseSessionName_RoundTrip(t *testing.T) {
 		"gt-gastown-morsov",
 	}
 
-	for _, session := range sessions {
-		t.Run(session, func(t *testing.T) {
-			identity, err := ParseSessionName(session)
+	for _, sess := range sessions {
+		t.Run(sess, func(t *testing.T) {
+			identity, err := ParseSessionName(sess)
 			if err != nil {
-				t.Fatalf("ParseSessionName(%q) error = %v", session, err)
+				t.Fatalf("ParseSessionName(%q) error = %v", sess, err)
 			}
-			if got := identity.SessionName(); got != session {
-				t.Errorf("Round-trip failed: ParseSessionName(%q).SessionName() = %q", session, got)
+			if got := identity.SessionName(); got != sess {
+				t.Errorf("Round-trip failed: ParseSessionName(%q).SessionName() = %q", sess, got)
 			}
 		})
 	}

@@ -251,6 +251,7 @@ Examples:
 // Flags
 var (
 	rigAddPrefix       string
+	rigAddLocalRepo    string
 	rigResetHandoff    bool
 	rigResetMail       bool
 	rigResetStale      bool
@@ -279,6 +280,7 @@ func init() {
 	rigCmd.AddCommand(rigStopCmd)
 
 	rigAddCmd.Flags().StringVar(&rigAddPrefix, "prefix", "", "Beads issue prefix (default: derived from name)")
+	rigAddCmd.Flags().StringVar(&rigAddLocalRepo, "local-repo", "", "Local repo path to share git objects (optional)")
 
 	rigResetCmd.Flags().BoolVar(&rigResetHandoff, "handoff", false, "Clear handoff content")
 	rigResetCmd.Flags().BoolVar(&rigResetMail, "mail", false, "Clear stale mail messages")
@@ -330,6 +332,9 @@ func runRigAdd(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Creating rig %s...\n", style.Bold.Render(name))
 	fmt.Printf("  Repository: %s\n", gitURL)
+	if rigAddLocalRepo != "" {
+		fmt.Printf("  Local repo: %s\n", rigAddLocalRepo)
+	}
 
 	startTime := time.Now()
 
@@ -338,6 +343,7 @@ func runRigAdd(cmd *cobra.Command, args []string) error {
 		Name:        name,
 		GitURL:      gitURL,
 		BeadsPrefix: rigAddPrefix,
+		LocalRepo:   rigAddLocalRepo,
 	})
 	if err != nil {
 		return fmt.Errorf("adding rig: %w", err)
@@ -393,8 +399,8 @@ func runRigAdd(cmd *cobra.Command, args []string) error {
 	fmt.Printf("  └── polecats/\n")
 
 	fmt.Printf("\nNext steps:\n")
-	fmt.Printf("  gt crew add <name> --rig %s   # Create your workspace\n", name)
-	fmt.Printf("  cd %s/crew/<name>       # Work in your clone\n", filepath.Join(townRoot, name))
+	fmt.Printf("  gt crew add <name> --rig %s   # Create your personal workspace\n", name)
+	fmt.Printf("  cd %s/crew/<name>              # Start working\n", filepath.Join(townRoot, name))
 
 	return nil
 }

@@ -52,13 +52,17 @@ func runStatusLine(cmd *cobra.Command, args []string) error {
 		role = os.Getenv("GT_ROLE")
 	}
 
+	// Get session names for comparison
+	mayorSession := getMayorSessionName()
+	deaconSession := getDeaconSessionName()
+
 	// Determine identity and output based on role
-	if role == "mayor" || statusLineSession == "gt-mayor" {
+	if role == "mayor" || statusLineSession == mayorSession {
 		return runMayorStatusLine(t)
 	}
 
 	// Deacon status line
-	if role == "deacon" || statusLineSession == "gt-deacon" {
+	if role == "deacon" || statusLineSession == deaconSession {
 		return runDeaconStatusLine(t)
 	}
 
@@ -160,7 +164,8 @@ func runMayorStatusLine(t *tmux.Tmux) error {
 
 	// Get town root from mayor pane's working directory
 	var townRoot string
-	paneDir, err := t.GetPaneWorkDir("gt-mayor")
+	mayorSession := getMayorSessionName()
+	paneDir, err := t.GetPaneWorkDir(mayorSession)
 	if err == nil && paneDir != "" {
 		townRoot, _ = workspace.Find(paneDir)
 	}
@@ -236,7 +241,8 @@ func runDeaconStatusLine(t *tmux.Tmux) error {
 
 	// Get town root from deacon pane's working directory
 	var townRoot string
-	paneDir, err := t.GetPaneWorkDir("gt-deacon")
+	deaconSession := getDeaconSessionName()
+	paneDir, err := t.GetPaneWorkDir(deaconSession)
 	if err == nil && paneDir != "" {
 		townRoot, _ = workspace.Find(paneDir)
 	}

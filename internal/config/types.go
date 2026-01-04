@@ -54,6 +54,7 @@ type RigsConfig struct {
 // RigEntry represents a single rig in the registry.
 type RigEntry struct {
 	GitURL      string       `json:"git_url"`
+	LocalRepo   string       `json:"local_repo,omitempty"`
 	AddedAt     time.Time    `json:"added_at"`
 	BeadsConfig *BeadsConfig `json:"beads,omitempty"`
 }
@@ -62,14 +63,6 @@ type RigEntry struct {
 type BeadsConfig struct {
 	Repo   string `json:"repo"`   // "local" | path | git-url
 	Prefix string `json:"prefix"` // issue prefix
-}
-
-// AgentState represents an agent's current state (*/state.json).
-type AgentState struct {
-	Role       string         `json:"role"`              // "mayor", "witness", etc.
-	LastActive time.Time      `json:"last_active"`
-	Session    string         `json:"session,omitempty"`
-	Extra      map[string]any `json:"extra,omitempty"`
 }
 
 // CurrentTownVersion is the current schema version for TownConfig.
@@ -92,6 +85,7 @@ type RigConfig struct {
 	Version   int          `json:"version"`    // schema version
 	Name      string       `json:"name"`       // rig name
 	GitURL    string       `json:"git_url"`    // git repository URL
+	LocalRepo string       `json:"local_repo,omitempty"`
 	CreatedAt time.Time    `json:"created_at"` // when the rig was created
 	Beads     *BeadsConfig `json:"beads,omitempty"`
 }

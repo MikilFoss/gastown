@@ -904,7 +904,7 @@ func runSlingFormula(args []string) error {
 // requires cross-database access (agent in rig db, hook bead in town db), but
 // bd slot set has a bug where it doesn't support this. See BD_BUG_AGENT_STATE_ROUTING.md.
 // The work is still correctly attached via `bd update <bead> --assignee=<agent>`.
-func updateAgentHookBead(agentID, beadID, workDir, townBeadsDir string) {
+func updateAgentHookBead(agentID, _, workDir, townBeadsDir string) { // beadID unused due to BD_BUG_AGENT_STATE_ROUTING
 	_ = townBeadsDir // Not used - BEADS_DIR breaks redirect mechanism
 
 	// Convert agent ID to agent bead ID
@@ -970,15 +970,15 @@ func detectActor() string {
 
 // agentIDToBeadID converts an agent ID to its corresponding agent bead ID.
 // Uses canonical naming: prefix-rig-role-name
-// This function uses "gt-" prefix by default. For non-gastown rigs, use the
-// appropriate *WithPrefix functions that accept the rig's configured prefix.
+// Town-level agents (Mayor, Deacon) use hq- prefix and are stored in town beads.
+// Rig-level agents use the rig's configured prefix (default "gt-").
 func agentIDToBeadID(agentID string) string {
-	// Handle simple cases (town-level agents)
+	// Handle simple cases (town-level agents with hq- prefix)
 	if agentID == "mayor" {
-		return beads.MayorBeadID()
+		return beads.MayorBeadIDTown()
 	}
 	if agentID == "deacon" {
-		return beads.DeaconBeadID()
+		return beads.DeaconBeadIDTown()
 	}
 
 	// Parse path-style agent IDs
@@ -1117,7 +1117,9 @@ func DispatchToDog(dogName string, create bool) (*DogDispatchInfo, error) {
 	agentID := fmt.Sprintf("deacon/dogs/%s", targetDog.Name)
 
 	// Try to find tmux session for the dog (dogs may run in tmux like polecats)
-	sessionName := fmt.Sprintf("gt-deacon-%s", targetDog.Name)
+	// Dogs use the pattern gt-{town}-deacon-{name}
+	townName, _ := workspace.GetTownName(townRoot)
+	sessionName := fmt.Sprintf("gt-%s-deacon-%s", townName, targetDog.Name)
 	t := tmux.NewTmux()
 	var pane string
 	if has, _ := t.HasSession(sessionName); has {
@@ -1164,7 +1166,7 @@ func generateDogName(mgr *dog.Manager) string {
 // slingGenerateShortID generates a short random ID (5 lowercase chars).
 func slingGenerateShortID() string {
 	b := make([]byte, 3)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	return strings.ToLower(base32.StdEncoding.EncodeToString(b)[:5])
 }
 

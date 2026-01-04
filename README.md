@@ -25,17 +25,27 @@ Multi-agent orchestrator for Claude Code. Track work with convoys; sling to agen
 # Install
 go install github.com/steveyegge/gastown/cmd/gt@latest
 
-# Create workspace
-gt install ~/gt
+# Create workspace (--git auto-initializes git repository)
+gt install ~/gt --git
+cd ~/gt
 
 # Add a project
 gt rig add myproject https://github.com/you/repo.git
 
-# Enter the Mayor's office (recommended)
-cd ~/gt && gt prime
+# Create your personal workspace
+gt crew add <yourname> --rig myproject
+
+# Start working
+cd myproject/crew/<yourname>
 ```
 
-Once inside the Mayor session, you're talking to Claude with full town context. Just tell it what you want:
+For advanced multi-agent coordination, use the Mayor session:
+
+```bash
+gt mayor attach                        # Enter the Mayor's office
+```
+
+Inside the Mayor session, you're talking to Claude with full town context:
 
 > "Help me fix the authentication bug in myproject"
 
@@ -78,7 +88,7 @@ The primary Gas Town experience. Agents run in tmux sessions with the Mayor as y
 
 ```bash
 gt start                               # Start Gas Town (daemon + Mayor session)
-cd ~/gt && gt prime                    # Enter Mayor session
+gt mayor attach                        # Enter Mayor session
 
 # Inside Mayor session, just ask:
 # "Create a convoy for issues 123 and 456 in myproject"

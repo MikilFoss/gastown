@@ -155,7 +155,7 @@ func runHandoff(cmd *cobra.Command, args []string) error {
 		if agent == "" {
 			agent = currentSession
 		}
-		LogHandoff(townRoot, agent, handoffSubject)
+		_ = LogHandoff(townRoot, agent, handoffSubject)
 		// Also log to activity feed
 		_ = events.LogFeed(events.TypeHandoff, agent, events.HandoffPayload(handoffSubject, true))
 	}
@@ -230,10 +230,10 @@ func resolveRoleToSession(role string) (string, error) {
 
 	switch strings.ToLower(role) {
 	case "mayor", "may":
-		return "gt-mayor", nil
+		return getMayorSessionName(), nil
 
 	case "deacon", "dea":
-		return "gt-deacon", nil
+		return getDeaconSessionName(), nil
 
 	case "crew":
 		// Try to get rig and crew name from environment or cwd
@@ -360,11 +360,15 @@ func buildRestartCommand(sessionName string) (string, error) {
 // sessionWorkDir returns the correct working directory for a session.
 // This is the canonical home for each role type.
 func sessionWorkDir(sessionName, townRoot string) (string, error) {
+	// Get session names for comparison
+	mayorSession := getMayorSessionName()
+	deaconSession := getDeaconSessionName()
+
 	switch {
-	case sessionName == "gt-mayor":
+	case sessionName == mayorSession:
 		return townRoot, nil
 
-	case sessionName == "gt-deacon":
+	case sessionName == deaconSession:
 		return townRoot + "/deacon", nil
 
 	case strings.Contains(sessionName, "-crew-"):

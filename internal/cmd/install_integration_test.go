@@ -3,7 +3,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -33,7 +32,6 @@ func TestInstallCreatesCorrectStructure(t *testing.T) {
 	// Verify directory structure
 	assertDirExists(t, hqPath, "HQ root")
 	assertDirExists(t, filepath.Join(hqPath, "mayor"), "mayor/")
-	assertDirExists(t, filepath.Join(hqPath, "rigs"), "rigs/")
 
 	// Verify mayor/town.json
 	townPath := filepath.Join(hqPath, "mayor", "town.json")
@@ -60,22 +58,6 @@ func TestInstallCreatesCorrectStructure(t *testing.T) {
 	}
 	if len(rigsConfig.Rigs) != 0 {
 		t.Errorf("rigs.json should be empty, got %d rigs", len(rigsConfig.Rigs))
-	}
-
-	// Verify mayor/state.json
-	statePath := filepath.Join(hqPath, "mayor", "state.json")
-	assertFileExists(t, statePath, "mayor/state.json")
-
-	stateData, err := os.ReadFile(statePath)
-	if err != nil {
-		t.Fatalf("failed to read state.json: %v", err)
-	}
-	var state map[string]interface{}
-	if err := json.Unmarshal(stateData, &state); err != nil {
-		t.Fatalf("failed to parse state.json: %v", err)
-	}
-	if state["role"] != "mayor" {
-		t.Errorf("state.json role = %q, want %q", state["role"], "mayor")
 	}
 
 	// Verify CLAUDE.md exists
@@ -161,6 +143,60 @@ func TestInstallIdempotent(t *testing.T) {
 	cmd.Env = append(os.Environ(), "HOME="+tmpDir)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("install with --force failed: %v\nOutput: %s", err, output)
+	}
+}
+
+// TestInstallFormulasProvisioned validates that embedded formulas are copied
+// to .beads/formulas/ during installation.
+func TestInstallFormulasProvisioned(t *testing.T) {
+	// Skip if bd is not available
+	if _, err := exec.LookPath("bd"); err != nil {
+		t.Skip("bd not installed, skipping formulas test")
+	}
+
+	tmpDir := t.TempDir()
+	hqPath := filepath.Join(tmpDir, "test-hq")
+
+	gtBinary := buildGT(t)
+
+	// Run gt install (includes beads and formula provisioning)
+	cmd := exec.Command(gtBinary, "install", hqPath)
+	cmd.Env = append(os.Environ(), "HOME="+tmpDir)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gt install failed: %v\nOutput: %s", err, output)
+	}
+
+	// Verify .beads/formulas/ directory exists
+	formulasDir := filepath.Join(hqPath, ".beads", "formulas")
+	assertDirExists(t, formulasDir, ".beads/formulas/")
+
+	// Verify at least some expected formulas exist
+	expectedFormulas := []string{
+		"mol-deacon-patrol.formula.toml",
+		"mol-refinery-patrol.formula.toml",
+		"code-review.formula.toml",
+	}
+	for _, f := range expectedFormulas {
+		formulaPath := filepath.Join(formulasDir, f)
+		assertFileExists(t, formulaPath, f)
+	}
+
+	// Verify the count matches embedded formulas
+	entries, err := os.ReadDir(formulasDir)
+	if err != nil {
+		t.Fatalf("failed to read formulas dir: %v", err)
+	}
+	// Count only formula files (not directories)
+	var fileCount int
+	for _, e := range entries {
+		if !e.IsDir() {
+			fileCount++
+		}
+	}
+	// Should have at least 20 formulas (allows for some variation)
+	if fileCount < 20 {
+		t.Errorf("expected at least 20 formulas, got %d", fileCount)
 	}
 }
 

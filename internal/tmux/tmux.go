@@ -131,9 +131,11 @@ func (t *Tmux) IsAvailable() bool {
 	return cmd.Run() == nil
 }
 
-// HasSession checks if a session exists.
+// HasSession checks if a session exists (exact match).
+// Uses "=" prefix for exact matching, preventing prefix matches
+// (e.g., "gt-deacon-boot" won't match when checking for "gt-deacon").
 func (t *Tmux) HasSession(name string) (bool, error) {
-	_, err := t.run("has-session", "-t", name)
+	_, err := t.run("has-session", "-t", "="+name)
 	if err != nil {
 		if errors.Is(err, ErrSessionNotFound) || errors.Is(err, ErrNoServer) {
 			return false, nil
@@ -272,12 +274,19 @@ func (t *Tmux) NudgeSession(session, message string) error {
 	// 2. Wait 500ms for paste to complete (tested, required)
 	time.Sleep(500 * time.Millisecond)
 
-	// 3. Send Enter as separate command (key to reliability)
-	if _, err := t.run("send-keys", "-t", session, "Enter"); err != nil {
-		return err
+	// 3. Send Enter with retry (critical for message submission)
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			time.Sleep(200 * time.Millisecond)
+		}
+		if _, err := t.run("send-keys", "-t", session, "Enter"); err != nil {
+			lastErr = err
+			continue
+		}
+		return nil
 	}
-
-	return nil
+	return fmt.Errorf("failed to send Enter after 3 attempts: %w", lastErr)
 }
 
 // NudgePane sends a message to a specific pane reliably.
@@ -291,12 +300,19 @@ func (t *Tmux) NudgePane(pane, message string) error {
 	// 2. Wait 500ms for paste to complete (tested, required)
 	time.Sleep(500 * time.Millisecond)
 
-	// 3. Send Enter as separate command (key to reliability)
-	if _, err := t.run("send-keys", "-t", pane, "Enter"); err != nil {
-		return err
+	// 3. Send Enter with retry (critical for message submission)
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			time.Sleep(200 * time.Millisecond)
+		}
+		if _, err := t.run("send-keys", "-t", pane, "Enter"); err != nil {
+			lastErr = err
+			continue
+		}
+		return nil
 	}
-
-	return nil
+	return fmt.Errorf("failed to send Enter after 3 attempts: %w", lastErr)
 }
 
 // AcceptBypassPermissionsWarning dismisses the Claude Code bypass permissions warning dialog.

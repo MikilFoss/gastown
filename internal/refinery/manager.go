@@ -143,7 +143,7 @@ func (m *Manager) Start(foreground bool) error {
 			return ErrAlreadyRunning
 		}
 		// Zombie - tmux alive but Claude dead. Kill and recreate.
-		fmt.Fprintln(m.output, "⚠ Detected zombie session (tmux alive, Claude dead). Recreating...")
+		_, _ = fmt.Fprintln(m.output, "⚠ Detected zombie session (tmux alive, Claude dead). Recreating...")
 		if err := t.KillSession(sessionID); err != nil {
 			return fmt.Errorf("killing zombie session: %w", err)
 		}
@@ -402,15 +402,15 @@ func parseTime(s string) time.Time {
 // run is deprecated - foreground mode now just prints a message.
 // The Refinery agent (Claude) handles all merge processing.
 // See: ZFC #5 - Move merge/conflict decisions from Go to Refinery agent
-func (m *Manager) run(ref *Refinery) error {
-	fmt.Fprintln(m.output, "")
-	fmt.Fprintln(m.output, "╔══════════════════════════════════════════════════════════════╗")
-	fmt.Fprintln(m.output, "║  Foreground mode is deprecated.                              ║")
-	fmt.Fprintln(m.output, "║                                                              ║")
-	fmt.Fprintln(m.output, "║  The Refinery agent (Claude) handles all merge decisions.   ║")
-	fmt.Fprintln(m.output, "║  Use 'gt refinery start' to run in background mode.         ║")
-	fmt.Fprintln(m.output, "╚══════════════════════════════════════════════════════════════╝")
-	fmt.Fprintln(m.output, "")
+func (m *Manager) run(_ *Refinery) error { // ref unused: deprecated function
+	_, _ = fmt.Fprintln(m.output, "")
+	_, _ = fmt.Fprintln(m.output, "╔══════════════════════════════════════════════════════════════╗")
+	_, _ = fmt.Fprintln(m.output, "║  Foreground mode is deprecated.                              ║")
+	_, _ = fmt.Fprintln(m.output, "║                                                              ║")
+	_, _ = fmt.Fprintln(m.output, "║  The Refinery agent (Claude) handles all merge decisions.   ║")
+	_, _ = fmt.Fprintln(m.output, "║  Use 'gt refinery start' to run in background mode.         ║")
+	_, _ = fmt.Fprintln(m.output, "╚══════════════════════════════════════════════════════════════╝")
+	_, _ = fmt.Fprintln(m.output, "")
 	return nil
 }
 
@@ -458,7 +458,7 @@ func (m *Manager) completeMR(mr *MergeRequest, closeReason CloseReason, errMsg s
 		// Close the MR (in_progress → closed)
 		if err := mr.Close(closeReason); err != nil {
 			// Log error but continue - this shouldn't happen
-			fmt.Fprintf(m.output, "Warning: failed to close MR: %v\n", err)
+			_, _ = fmt.Fprintf(m.output, "Warning: failed to close MR: %v\n", err)
 		}
 		switch closeReason {
 		case CloseReasonMerged:
@@ -471,7 +471,7 @@ func (m *Manager) completeMR(mr *MergeRequest, closeReason CloseReason, errMsg s
 		// Reopen the MR for rework (in_progress → open)
 		if err := mr.Reopen(); err != nil {
 			// Log error but continue
-			fmt.Fprintf(m.output, "Warning: failed to reopen MR: %v\n", err)
+			_, _ = fmt.Fprintf(m.output, "Warning: failed to reopen MR: %v\n", err)
 		}
 	}
 
@@ -486,7 +486,7 @@ func (m *Manager) runTests(testCmd string) error {
 		return nil
 	}
 
-	cmd := exec.Command(parts[0], parts[1:]...)
+	cmd := exec.Command(parts[0], parts[1:]...) //nolint:gosec // G204: testCmd is from trusted rig config
 	cmd.Dir = m.workDir
 
 	var stderr bytes.Buffer
@@ -571,7 +571,7 @@ func (m *Manager) pushWithRetry(targetBranch string, config MergeConfig) error {
 
 	for attempt := 0; attempt <= config.PushRetryCount; attempt++ {
 		if attempt > 0 {
-			fmt.Fprintf(m.output, "Push retry %d/%d after %v\n", attempt, config.PushRetryCount, delay)
+			_, _ = fmt.Fprintf(m.output, "Push retry %d/%d after %v\n", attempt, config.PushRetryCount, delay)
 			time.Sleep(delay)
 			delay *= 2 // Exponential backoff
 		}
@@ -731,7 +731,7 @@ func (m *Manager) Retry(id string, processNow bool) error {
 	// The Refinery agent handles merge processing.
 	// It will pick up this MR in its next patrol cycle.
 	if processNow {
-		fmt.Fprintln(m.output, "Note: --now is deprecated. The Refinery agent will process this MR in its next patrol cycle.")
+		_, _ = fmt.Fprintln(m.output, "Note: --now is deprecated. The Refinery agent will process this MR in its next patrol cycle.")
 	}
 
 	return nil

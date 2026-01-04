@@ -93,6 +93,7 @@ func TestAddressToSessionID(t *testing.T) {
 	}{
 		{"mayor", "gt-mayor"},
 		{"mayor/", "gt-mayor"},
+		{"deacon", "gt-deacon"},
 		{"gastown/refinery", "gt-gastown-refinery"},
 		{"gastown/Toast", "gt-gastown-Toast"},
 		{"beads/witness", "gt-beads-witness"},

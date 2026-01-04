@@ -44,8 +44,9 @@ func TestRigsConfigRoundTrip(t *testing.T) {
 		Version: 1,
 		Rigs: map[string]RigEntry{
 			"gastown": {
-				GitURL:  "git@github.com:steveyegge/gastown.git",
-				AddedAt: time.Now().Truncate(time.Second),
+				GitURL:    "git@github.com:steveyegge/gastown.git",
+				LocalRepo: "/tmp/local-repo",
+				AddedAt:   time.Now().Truncate(time.Second),
 				BeadsConfig: &BeadsConfig{
 					Repo:   "local",
 					Prefix: "gt-",
@@ -74,35 +75,8 @@ func TestRigsConfigRoundTrip(t *testing.T) {
 	if rig.BeadsConfig == nil || rig.BeadsConfig.Prefix != "gt-" {
 		t.Errorf("BeadsConfig.Prefix = %v, want 'gt-'", rig.BeadsConfig)
 	}
-}
-
-func TestAgentStateRoundTrip(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "state.json")
-
-	original := &AgentState{
-		Role:       "mayor",
-		LastActive: time.Now().Truncate(time.Second),
-		Session:    "abc123",
-		Extra: map[string]any{
-			"custom": "value",
-		},
-	}
-
-	if err := SaveAgentState(path, original); err != nil {
-		t.Fatalf("SaveAgentState: %v", err)
-	}
-
-	loaded, err := LoadAgentState(path)
-	if err != nil {
-		t.Fatalf("LoadAgentState: %v", err)
-	}
-
-	if loaded.Role != original.Role {
-		t.Errorf("Role = %q, want %q", loaded.Role, original.Role)
-	}
-	if loaded.Session != original.Session {
-		t.Errorf("Session = %q, want %q", loaded.Session, original.Session)
+	if rig.LocalRepo != "/tmp/local-repo" {
+		t.Errorf("LocalRepo = %q, want %q", rig.LocalRepo, "/tmp/local-repo")
 	}
 }
 
@@ -125,12 +99,6 @@ func TestValidationErrors(t *testing.T) {
 	if err := validateTownConfig(tc); err == nil {
 		t.Error("expected error for wrong type")
 	}
-
-	// Missing role
-	as := &AgentState{}
-	if err := validateAgentState(as); err == nil {
-		t.Error("expected error for missing role")
-	}
 }
 
 func TestRigConfigRoundTrip(t *testing.T) {
@@ -140,6 +108,7 @@ func TestRigConfigRoundTrip(t *testing.T) {
 	original := NewRigConfig("gastown", "git@github.com:test/gastown.git")
 	original.CreatedAt = time.Now().Truncate(time.Second)
 	original.Beads = &BeadsConfig{Prefix: "gt-"}
+	original.LocalRepo = "/tmp/local-repo"
 
 	if err := SaveRigConfig(path, original); err != nil {
 		t.Fatalf("SaveRigConfig: %v", err)
@@ -161,6 +130,9 @@ func TestRigConfigRoundTrip(t *testing.T) {
 	}
 	if loaded.GitURL != "git@github.com:test/gastown.git" {
 		t.Errorf("GitURL = %q, want expected URL", loaded.GitURL)
+	}
+	if loaded.LocalRepo != "/tmp/local-repo" {
+		t.Errorf("LocalRepo = %q, want %q", loaded.LocalRepo, "/tmp/local-repo")
 	}
 	if loaded.Beads == nil || loaded.Beads.Prefix != "gt-" {
 		t.Error("Beads.Prefix not preserved")

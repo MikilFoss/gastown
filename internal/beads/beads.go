@@ -39,7 +39,7 @@ func ResolveBeadsDir(workDir string) string {
 	redirectPath := filepath.Join(beadsDir, "redirect")
 
 	// Check for redirect file
-	data, err := os.ReadFile(redirectPath)
+	data, err := os.ReadFile(redirectPath) //nolint:gosec // G304: path is constructed internally
 	if err != nil {
 		// No redirect, use local .beads
 		return beadsDir
@@ -229,7 +229,7 @@ func (b *Beads) run(args ...string) ([]byte, error) {
 	// Use --no-daemon for faster read operations (avoids daemon IPC overhead)
 	// The daemon is primarily useful for write coalescing, not reads
 	fullArgs := append([]string{"--no-daemon"}, args...)
-	cmd := exec.Command("bd", fullArgs...)
+	cmd := exec.Command("bd", fullArgs...) //nolint:gosec // G204: bd is a trusted internal tool
 	cmd.Dir = b.workDir
 
 	// Set BEADS_DIR if specified (enables cross-database access)
@@ -474,6 +474,49 @@ func (b *Beads) Blocked() ([]*Issue, error) {
 // This ensures created_by is populated for issue provenance tracking.
 func (b *Beads) Create(opts CreateOptions) (*Issue, error) {
 	args := []string{"create", "--json"}
+
+	if opts.Title != "" {
+		args = append(args, "--title="+opts.Title)
+	}
+	if opts.Type != "" {
+		args = append(args, "--type="+opts.Type)
+	}
+	if opts.Priority >= 0 {
+		args = append(args, fmt.Sprintf("--priority=%d", opts.Priority))
+	}
+	if opts.Description != "" {
+		args = append(args, "--description="+opts.Description)
+	}
+	if opts.Parent != "" {
+		args = append(args, "--parent="+opts.Parent)
+	}
+	// Default Actor from BD_ACTOR env var if not specified
+	actor := opts.Actor
+	if actor == "" {
+		actor = os.Getenv("BD_ACTOR")
+	}
+	if actor != "" {
+		args = append(args, "--actor="+actor)
+	}
+
+	out, err := b.run(args...)
+	if err != nil {
+		return nil, err
+	}
+
+	var issue Issue
+	if err := json.Unmarshal(out, &issue); err != nil {
+		return nil, fmt.Errorf("parsing bd create output: %w", err)
+	}
+
+	return &issue, nil
+}
+
+// CreateWithID creates an issue with a specific ID.
+// This is useful for agent beads, role beads, and other beads that need
+// deterministic IDs rather than auto-generated ones.
+func (b *Beads) CreateWithID(id string, opts CreateOptions) (*Issue, error) {
+	args := []string{"create", "--json", "--id=" + id}
 
 	if opts.Title != "" {
 		args = append(args, "--title="+opts.Title)
@@ -1126,17 +1169,27 @@ func AgentBeadID(rig, role, name string) string {
 }
 
 // MayorBeadID returns the Mayor agent bead ID.
+//
+// Deprecated: Use MayorBeadIDTown() for town-level beads (hq- prefix).
+// This function returns "gt-mayor" which is for rig-level storage.
+// Town-level agents like Mayor should use the hq- prefix.
 func MayorBeadID() string {
 	return "gt-mayor"
 }
 
 // DeaconBeadID returns the Deacon agent bead ID.
+//
+// Deprecated: Use DeaconBeadIDTown() for town-level beads (hq- prefix).
+// This function returns "gt-deacon" which is for rig-level storage.
+// Town-level agents like Deacon should use the hq- prefix.
 func DeaconBeadID() string {
 	return "gt-deacon"
 }
 
 // DogBeadID returns a Dog agent bead ID.
 // Dogs are town-level agents, so they follow the pattern: gt-dog-<name>
+// Deprecated: Use DogBeadIDTown() for town-level beads with hq- prefix.
+// Dogs are town-level agents and should use hq-dog-<name>, not gt-dog-<name>.
 func DogBeadID(name string) string {
 	return "gt-dog-" + name
 }
@@ -1347,6 +1400,8 @@ func IsAgentSessionBead(beadID string) bool {
 
 // RoleBeadID returns the role bead ID for a given role type.
 // Role beads define lifecycle configuration for each agent type.
+// Deprecated: Use RoleBeadIDTown() for town-level beads with hq- prefix.
+// Role beads are global templates and should use hq-<role>-role, not gt-<role>-role.
 func RoleBeadID(roleType string) string {
 	return "gt-" + roleType + "-role"
 }

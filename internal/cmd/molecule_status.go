@@ -18,9 +18,10 @@ import (
 
 // buildAgentBeadID constructs the agent bead ID from an agent identity.
 // Uses canonical naming: prefix-rig-role-name
+// Town-level agents use hq- prefix; rig-level agents use rig's prefix.
 // Examples:
-//   - "mayor" -> "gt-mayor"
-//   - "deacon" -> "gt-deacon"
+//   - "mayor" -> "hq-mayor"
+//   - "deacon" -> "hq-deacon"
 //   - "gastown/witness" -> "gt-gastown-witness"
 //   - "gastown/refinery" -> "gt-gastown-refinery"
 //   - "gastown/nux" (polecat) -> "gt-gastown-polecat-nux"
@@ -34,9 +35,9 @@ func buildAgentBeadID(identity string, role Role) string {
 	if role == RoleUnknown || role == Role("") {
 		switch {
 		case identity == "mayor":
-			return beads.MayorBeadID()
+			return beads.MayorBeadIDTown()
 		case identity == "deacon":
-			return beads.DeaconBeadID()
+			return beads.DeaconBeadIDTown()
 		case len(parts) == 2 && parts[1] == "witness":
 			return beads.WitnessBeadID(parts[0])
 		case len(parts) == 2 && parts[1] == "refinery":
@@ -57,9 +58,9 @@ func buildAgentBeadID(identity string, role Role) string {
 
 	switch role {
 	case RoleMayor:
-		return beads.MayorBeadID()
+		return beads.MayorBeadIDTown()
 	case RoleDeacon:
-		return beads.DeaconBeadID()
+		return beads.DeaconBeadIDTown()
 	case RoleWitness:
 		if len(parts) >= 1 {
 			return beads.WitnessBeadID(parts[0])

@@ -29,7 +29,14 @@ type HandlerResult struct {
 // HandlePolecatDone processes a POLECAT_DONE message from a polecat.
 // For ESCALATED/DEFERRED exits (no pending MR), auto-nukes if clean.
 // For PHASE_COMPLETE exits, recycles the polecat (session ends, worktree kept).
-// For exits with pending MR, creates a cleanup wisp to wait for MERGED.
+// For COMPLETED exits with MR and clean state, auto-nukes immediately (ephemeral model).
+// For exits with pending MR but dirty state, creates cleanup wisp for manual intervention.
+//
+// Ephemeral Polecat Model:
+// Polecats are truly ephemeral - done at MR submission, recyclable immediately.
+// Once the branch is pushed (cleanup_status=clean), the polecat can be nuked.
+// The MR lifecycle continues independently in the Refinery.
+// If conflicts arise, Refinery creates a NEW conflict-resolution task for a NEW polecat.
 func HandlePolecatDone(workDir, rigName string, msg *mail.Message) *HandlerResult {
 	result := &HandlerResult{
 		MessageID:    msg.ID,
@@ -59,23 +66,28 @@ func HandlePolecatDone(workDir, rigName string, msg *mail.Message) *HandlerResul
 	// ESCALATED/DEFERRED exits typically have no MR pending
 	hasPendingMR := payload.MRID != "" || payload.Exit == "COMPLETED"
 
-	if !hasPendingMR {
-		// No MR pending - can auto-nuke immediately if clean
-		nukeResult := AutoNukeIfClean(workDir, rigName, payload.PolecatName)
-		if nukeResult.Nuked {
-			result.Handled = true
+	// Ephemeral model: try to auto-nuke immediately regardless of MR status
+	// If cleanup_status is clean, the branch is pushed and polecat is recyclable.
+	// The MR will be processed independently by the Refinery.
+	nukeResult := AutoNukeIfClean(workDir, rigName, payload.PolecatName)
+	if nukeResult.Nuked {
+		result.Handled = true
+		if hasPendingMR {
+			// Ephemeral model: polecat nuked, MR continues in Refinery
+			result.Action = fmt.Sprintf("auto-nuked %s (ephemeral: exit=%s, MR=%s): %s", payload.PolecatName, payload.Exit, payload.MRID, nukeResult.Reason)
+		} else {
 			result.Action = fmt.Sprintf("auto-nuked %s (exit=%s, no MR): %s", payload.PolecatName, payload.Exit, nukeResult.Reason)
-			return result
 		}
-		if nukeResult.Error != nil {
-			// Nuke failed - fall through to create wisp for manual cleanup
-			result.Error = nukeResult.Error
-		}
-		// Couldn't auto-nuke (dirty state or verification failed) - create wisp for manual intervention
+		return result
+	}
+	if nukeResult.Error != nil {
+		// Nuke failed - fall through to create wisp for manual cleanup
+		result.Error = nukeResult.Error
 	}
 
-	// Create a cleanup wisp for this polecat
-	// Either waiting for MR to be merged, or needs manual cleanup
+	// Couldn't auto-nuke (dirty state or verification failed) - create wisp for manual intervention
+	// Note: Even with pending MR, if we can't auto-nuke it means something is wrong
+	// (uncommitted changes, unpushed commits, etc.) that needs attention.
 	wispID, err := createCleanupWisp(workDir, payload.PolecatName, payload.IssueID, payload.Branch)
 	if err != nil {
 		result.Error = fmt.Errorf("creating cleanup wisp: %w", err)
@@ -85,9 +97,9 @@ func HandlePolecatDone(workDir, rigName string, msg *mail.Message) *HandlerResul
 	result.Handled = true
 	result.WispCreated = wispID
 	if hasPendingMR {
-		result.Action = fmt.Sprintf("created cleanup wisp %s for %s (waiting for MR %s)", wispID, payload.PolecatName, payload.MRID)
+		result.Action = fmt.Sprintf("created cleanup wisp %s for %s (MR=%s, needs intervention: %s)", wispID, payload.PolecatName, payload.MRID, nukeResult.Reason)
 	} else {
-		result.Action = fmt.Sprintf("created cleanup wisp %s for %s (needs manual cleanup: dirty state)", wispID, payload.PolecatName)
+		result.Action = fmt.Sprintf("created cleanup wisp %s for %s (needs manual cleanup: %s)", wispID, payload.PolecatName, nukeResult.Reason)
 	}
 
 	return result
@@ -323,7 +335,7 @@ func createCleanupWisp(workDir, polecatName, issueID, branch string) (string, er
 
 	labels := strings.Join(CleanupWispLabels(polecatName, "pending"), ",")
 
-	cmd := exec.Command("bd", "create",
+	cmd := exec.Command("bd", "create", //nolint:gosec // G204: args are constructed internally
 		"--wisp",
 		"--title", title,
 		"--description", description,
@@ -368,7 +380,7 @@ func createSwarmWisp(workDir string, payload *SwarmStartPayload) (string, error)
 
 	labels := strings.Join(SwarmWispLabels(payload.SwarmID, payload.Total, 0, payload.StartedAt), ",")
 
-	cmd := exec.Command("bd", "create",
+	cmd := exec.Command("bd", "create", //nolint:gosec // G204: args are constructed internally
 		"--wisp",
 		"--title", title,
 		"--description", description,
@@ -398,7 +410,7 @@ func createSwarmWisp(workDir string, payload *SwarmStartPayload) (string, error)
 
 // findCleanupWisp finds an existing cleanup wisp for a polecat.
 func findCleanupWisp(workDir, polecatName string) (string, error) {
-	cmd := exec.Command("bd", "list",
+	cmd := exec.Command("bd", "list", //nolint:gosec // G204: bd is a trusted internal tool
 		"--wisp",
 		"--labels", fmt.Sprintf("polecat:%s,state:merge-requested", polecatName),
 		"--status", "open",
@@ -463,7 +475,7 @@ func getCleanupStatus(workDir, rigName, polecatName string) string {
 	prefix := beads.GetPrefixForRig(townRoot, rigName)
 	agentBeadID := beads.PolecatBeadIDWithPrefix(prefix, rigName, polecatName)
 
-	cmd := exec.Command("bd", "show", agentBeadID, "--json")
+	cmd := exec.Command("bd", "show", agentBeadID, "--json") //nolint:gosec // G204: agentBeadID is validated internally
 	cmd.Dir = workDir
 
 	var stdout, stderr bytes.Buffer
@@ -612,7 +624,7 @@ func UpdateCleanupWispState(workDir, wispID, newState string) error {
 	// Update with new state
 	newLabels := strings.Join(CleanupWispLabels(polecatName, newState), ",")
 
-	updateCmd := exec.Command("bd", "update", wispID, "--labels", newLabels)
+	updateCmd := exec.Command("bd", "update", wispID, "--labels", newLabels) //nolint:gosec // G204: args are constructed internally
 	updateCmd.Dir = workDir
 
 	var stderr bytes.Buffer
@@ -635,7 +647,7 @@ func UpdateCleanupWispState(workDir, wispID, newState string) error {
 func NukePolecat(workDir, rigName, polecatName string) error {
 	address := fmt.Sprintf("%s/%s", rigName, polecatName)
 
-	cmd := exec.Command("gt", "polecat", "nuke", address)
+	cmd := exec.Command("gt", "polecat", "nuke", address) //nolint:gosec // G204: address is constructed from validated internal data
 	cmd.Dir = workDir
 
 	var stderr bytes.Buffer

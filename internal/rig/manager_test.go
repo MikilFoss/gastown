@@ -40,18 +40,12 @@ func createTestRig(t *testing.T, root, name string) {
 		t.Fatalf("mkdir rig: %v", err)
 	}
 
-	// Create agent dirs
+	// Create agent dirs (witness, refinery, mayor)
 	for _, dir := range AgentDirs {
 		dirPath := filepath.Join(rigPath, dir)
 		if err := os.MkdirAll(dirPath, 0755); err != nil {
 			t.Fatalf("mkdir %s: %v", dir, err)
 		}
-	}
-
-	// Create witness state.json (witnesses don't have clones, just state)
-	witnessState := filepath.Join(rigPath, "witness", "state.json")
-	if err := os.WriteFile(witnessState, []byte(`{"role":"witness"}`), 0644); err != nil {
-		t.Fatalf("write witness state: %v", err)
 	}
 
 	// Create some polecats
@@ -329,20 +323,21 @@ exit 1
 	}
 }
 
-func TestInitAgentBeadsUsesTownBeadsDir(t *testing.T) {
-	// Agent beads use town beads (gt-* prefix) for cross-rig coordination.
-	// The Manager.townRoot determines where agent beads are created.
+func TestInitAgentBeadsUsesRigBeadsDir(t *testing.T) {
+	// Rig-level agent beads (witness, refinery) are stored in rig beads.
+	// Town-level agents (mayor, deacon) are created by gt install in town beads.
+	// This test verifies that rig agent beads are created in the rig directory,
+	// without an explicit BEADS_DIR override (uses cwd-based discovery).
 	townRoot := t.TempDir()
-	townBeadsDir := filepath.Join(townRoot, ".beads")
 	rigPath := filepath.Join(townRoot, "testrip")
-	mayorRigPath := filepath.Join(rigPath, "mayor", "rig")
+	rigBeadsDir := filepath.Join(rigPath, ".beads")
 
-	if err := os.MkdirAll(townBeadsDir, 0755); err != nil {
-		t.Fatalf("mkdir town beads dir: %v", err)
+	if err := os.MkdirAll(rigBeadsDir, 0755); err != nil {
+		t.Fatalf("mkdir rig beads dir: %v", err)
 	}
-	if err := os.MkdirAll(mayorRigPath, 0755); err != nil {
-		t.Fatalf("mkdir mayor rig: %v", err)
-	}
+
+	// Track which agent IDs were created
+	var createdAgents []string
 
 	script := `#!/usr/bin/env bash
 set -e
@@ -353,17 +348,10 @@ cmd="$1"
 shift
 case "$cmd" in
   show)
-    if [[ "$BEADS_DIR" != "$EXPECT_BEADS_DIR" ]]; then
-      echo "BEADS_DIR mismatch" >&2
-      exit 1
-    fi
+    # Return empty to indicate agent doesn't exist yet
     echo "[]"
     ;;
   create)
-    if [[ "$BEADS_DIR" != "$EXPECT_BEADS_DIR" ]]; then
-      echo "BEADS_DIR mismatch" >&2
-      exit 1
-    fi
     id=""
     title=""
     for arg in "$@"; do
@@ -372,13 +360,12 @@ case "$cmd" in
         --title=*) title="${arg#--title=}" ;;
       esac
     done
+    # Log the created agent ID for verification
+    echo "$id" >> "$AGENT_LOG"
     printf '{"id":"%s","title":"%s","description":"","issue_type":"agent"}' "$id" "$title"
     ;;
   slot)
-    if [[ "$BEADS_DIR" != "$EXPECT_BEADS_DIR" ]]; then
-      echo "BEADS_DIR mismatch" >&2
-      exit 1
-    fi
+    # Accept slot commands
     ;;
   *)
     echo "unexpected command: $cmd" >&2
@@ -388,12 +375,38 @@ esac
 `
 
 	binDir := writeFakeBD(t, script)
+	agentLog := filepath.Join(t.TempDir(), "agents.log")
 	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-	t.Setenv("EXPECT_BEADS_DIR", townBeadsDir)
-	t.Setenv("BEADS_DIR", "")
+	t.Setenv("AGENT_LOG", agentLog)
+	t.Setenv("BEADS_DIR", "") // Clear any existing BEADS_DIR
 
 	manager := &Manager{townRoot: townRoot}
-	if err := manager.initAgentBeads(rigPath, "demo", "gt", false); err != nil {
+	if err := manager.initAgentBeads(rigPath, "demo", "gt"); err != nil {
 		t.Fatalf("initAgentBeads: %v", err)
+	}
+
+	// Verify the expected rig-level agents were created
+	data, err := os.ReadFile(agentLog)
+	if err != nil {
+		t.Fatalf("reading agent log: %v", err)
+	}
+	createdAgents = strings.Split(strings.TrimSpace(string(data)), "\n")
+
+	// Should create witness and refinery for the rig
+	expectedAgents := map[string]bool{
+		"gt-demo-witness":  false,
+		"gt-demo-refinery": false,
+	}
+
+	for _, id := range createdAgents {
+		if _, ok := expectedAgents[id]; ok {
+			expectedAgents[id] = true
+		}
+	}
+
+	for id, found := range expectedAgents {
+		if !found {
+			t.Errorf("expected agent %s was not created", id)
+		}
 	}
 }

@@ -111,10 +111,10 @@ func EnsureBdDaemonHealth(workDir string) string {
 }
 
 // restartBdDaemons restarts all bd daemons.
-func restartBdDaemons() error {
+func restartBdDaemons() error { //nolint:unparam // error return kept for future use
 	// Stop all daemons first
 	stopCmd := exec.Command("bd", "daemon", "killall")
-	stopCmd.Run() // Ignore errors - daemons might not be running
+	_ = stopCmd.Run() // Ignore errors - daemons might not be running
 
 	// Give time for cleanup
 	time.Sleep(200 * time.Millisecond)

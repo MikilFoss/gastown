@@ -12,7 +12,6 @@ import (
 	"github.com/steveyegge/gastown/internal/config"
 	"github.com/steveyegge/gastown/internal/git"
 	"github.com/steveyegge/gastown/internal/rig"
-	"github.com/steveyegge/gastown/internal/templates"
 	"github.com/steveyegge/gastown/internal/workspace"
 )
 
@@ -245,12 +244,8 @@ func (m *Manager) AddWithOptions(name string, opts AddOptions) (*Polecat, error)
 		fmt.Printf("Warning: could not set up shared beads: %v\n", err)
 	}
 
-	// Provision .claude/commands/ with standard slash commands (e.g., /handoff)
-	// This ensures polecats have Gas Town utilities even if source repo lacks them.
-	if err := templates.ProvisionCommands(polecatPath); err != nil {
-		// Non-fatal - polecat can still work, warn but don't fail
-		fmt.Printf("Warning: could not provision slash commands: %v\n", err)
-	}
+	// NOTE: Slash commands (.claude/commands/) are provisioned at town level by gt install.
+	// All agents inherit them via Claude's directory traversal - no per-workspace copies needed.
 
 	// Create agent bead for ZFC compliance (self-report state).
 	// State starts as "spawning" - will be updated to "working" when Claude starts.
@@ -468,10 +463,7 @@ func (m *Manager) RecreateWithOptions(name string, force bool, opts AddOptions) 
 		fmt.Printf("Warning: could not set up shared beads: %v\n", err)
 	}
 
-	// Provision .claude/commands/ with standard slash commands (e.g., /handoff)
-	if err := templates.ProvisionCommands(polecatPath); err != nil {
-		fmt.Printf("Warning: could not provision slash commands: %v\n", err)
-	}
+	// NOTE: Slash commands inherited from town level - no per-workspace copies needed.
 
 	// Create fresh agent bead for ZFC compliance
 	// HookBead is set atomically at recreation time if provided.
