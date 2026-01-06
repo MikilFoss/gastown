@@ -63,6 +63,7 @@ Routing checks (fixable):
 
 Session hook checks:
   - session-hooks            Check settings.json use session-start.sh
+  - claude-settings          Check Claude settings.json match templates (fixable)
 
 Patrol checks:
   - patrol-molecules-exist   Verify patrol molecules exist
@@ -137,6 +138,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	d.Register(doctor.NewSessionHookCheck())
 	d.Register(doctor.NewRuntimeGitignoreCheck())
 	d.Register(doctor.NewLegacyGastownCheck())
+	d.Register(doctor.NewClaudeSettingsCheck())
 
 	// Crew workspace checks
 	d.Register(doctor.NewCrewStateCheck())

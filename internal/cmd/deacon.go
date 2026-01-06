@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/steveyegge/gastown/internal/beads"
+	"github.com/steveyegge/gastown/internal/claude"
 	"github.com/steveyegge/gastown/internal/config"
 	"github.com/steveyegge/gastown/internal/constants"
 	"github.com/steveyegge/gastown/internal/deacon"
@@ -274,9 +275,9 @@ func startDeaconSession(t *tmux.Tmux, sessionName string) error {
 		return fmt.Errorf("creating deacon directory: %w", err)
 	}
 
-	// Ensure deacon has patrol hooks (idempotent)
-	if err := ensurePatrolHooks(deaconDir); err != nil {
-		style.PrintWarning("Could not create deacon hooks: %v", err)
+	// Ensure Claude settings exist (autonomous role needs mail in SessionStart)
+	if err := claude.EnsureSettingsForRole(deaconDir, "deacon"); err != nil {
+		style.PrintWarning("Could not create deacon settings: %v", err)
 	}
 
 	// Create session in deacon directory
@@ -524,64 +525,6 @@ func runDeaconTriggerPending(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
-}
-
-// ensurePatrolHooks creates .claude/settings.json with hooks for patrol roles.
-// This is idempotent - if hooks already exist, it does nothing.
-func ensurePatrolHooks(workspacePath string) error {
-	settingsPath := filepath.Join(workspacePath, ".claude", "settings.json")
-
-	// Check if already exists
-	if _, err := os.Stat(settingsPath); err == nil {
-		return nil // Already exists
-	}
-
-	claudeDir := filepath.Join(workspacePath, ".claude")
-	if err := os.MkdirAll(claudeDir, 0755); err != nil {
-		return fmt.Errorf("creating .claude dir: %w", err)
-	}
-
-	// Standard patrol hooks
-	// Note: SessionStart nudges Deacon for GUPP backstop (agent wake notification)
-	hooksJSON := `{
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "gt prime && gt mail check --inject && gt nudge deacon session-started"
-          }
-        ]
-      }
-    ],
-    "PreCompact": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "gt prime"
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "gt mail check --inject"
-          }
-        ]
-      }
-    ]
-  }
-}
-`
-	return os.WriteFile(settingsPath, []byte(hooksJSON), 0600)
 }
 
 // runDeaconHealthCheck implements the health-check command.
