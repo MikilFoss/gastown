@@ -228,6 +228,15 @@ func runInstall(cmd *cobra.Command, args []string) error {
 		fmt.Printf("   %s Could not create boot directory: %v\n", style.Dim.Render("⚠"), err)
 	}
 
+	// Create plugins directory for town-level patrol plugins.
+	// This avoids gt doctor warning on fresh install.
+	pluginsDir := filepath.Join(absPath, "plugins")
+	if err := os.MkdirAll(pluginsDir, 0755); err != nil {
+		fmt.Printf("   %s Could not create plugins directory: %v\n", style.Dim.Render("⚠"), err)
+	} else {
+		fmt.Printf("   ✓ Created plugins/\n")
+	}
+
 	// Create daemon.json patrol config.
 	// This avoids gt doctor warning on fresh install.
 	if err := config.EnsureDaemonPatrolConfig(absPath); err != nil {
