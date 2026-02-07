@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -105,6 +106,9 @@ This command will:
 2. Move them to .dolt-data/<rigname>/
 3. Remove the old empty directories
 
+Use --dry-run to preview what would be moved (source/target paths and sizes)
+without making any changes.
+
 After migration, start the server with 'gt dolt start'.`,
 	RunE: runDoltMigrate,
 }
@@ -125,8 +129,9 @@ Safe to run multiple times (idempotent). Preserves any existing fields in metada
 }
 
 var (
-	doltLogLines  int
-	doltLogFollow bool
+	doltLogLines    int
+	doltLogFollow   bool
+	doltMigrateDry  bool
 )
 
 func init() {
@@ -142,6 +147,8 @@ func init() {
 
 	doltLogsCmd.Flags().IntVarP(&doltLogLines, "lines", "n", 50, "Number of lines to show")
 	doltLogsCmd.Flags().BoolVarP(&doltLogFollow, "follow", "f", false, "Follow log output")
+
+	doltMigrateCmd.Flags().BoolVar(&doltMigrateDry, "dry-run", false, "Preview what would be migrated without making changes")
 
 	rootCmd.AddCommand(doltCmd)
 }
@@ -390,8 +397,14 @@ func runDoltMigrate(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Found %d database(s) to migrate:\n\n", len(migrations))
 	for _, m := range migrations {
-		fmt.Printf("  %s\n", m.SourcePath)
+		sizeStr := dirSizeHuman(m.SourcePath)
+		fmt.Printf("  %s (%s)\n", m.SourcePath, sizeStr)
 		fmt.Printf("    → %s\n\n", m.TargetPath)
+	}
+
+	if doltMigrateDry {
+		fmt.Println("Dry run: no changes made.")
+		return nil
 	}
 
 	// Perform migrations
@@ -416,6 +429,21 @@ func runDoltMigrate(cmd *cobra.Command, args []string) error {
 	fmt.Printf("\nStart server with: %s\n", style.Dim.Render("gt dolt start"))
 
 	return nil
+}
+
+// dirSizeHuman returns a human-readable size string for a directory tree.
+func dirSizeHuman(path string) string {
+	var total int64
+	_ = filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil // skip errors
+		}
+		if !info.IsDir() {
+			total += info.Size()
+		}
+		return nil
+	})
+	return formatBytes(total)
 }
 
 func runDoltFixMetadata(cmd *cobra.Command, args []string) error {
