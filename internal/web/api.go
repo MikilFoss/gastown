@@ -19,7 +19,7 @@ type CommandRequest struct {
 	// Command is the gt command to run (without the "gt" prefix).
 	// Example: "status --json" or "mail inbox"
 	Command string `json:"command"`
-	// Timeout in seconds (optional, default 30, max 60)
+	// Timeout in seconds (optional; see WebTimeoutsConfig for defaults)
 	Timeout int `json:"timeout,omitempty"`
 }
 

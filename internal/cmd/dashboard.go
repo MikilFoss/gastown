@@ -66,6 +66,8 @@ func runDashboard(cmd *cobra.Command, args []string) error {
 		var webCfg *config.WebTimeoutsConfig
 		if ts, loadErr := config.LoadOrCreateTownSettings(config.TownSettingsPath(townRoot)); loadErr == nil {
 			webCfg = ts.WebTimeouts
+		} else {
+			fmt.Fprintf(cmd.ErrOrStderr(), "warning: loading town settings: %v (using defaults)\n", loadErr)
 		}
 
 		handler, err = web.NewDashboardMux(fetcher, webCfg)

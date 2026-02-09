@@ -99,7 +99,7 @@ func NewModel() *Model {
 		convoyViewport: viewport.New(0, 0),
 		feedViewport:   viewport.New(0, 0),
 		rigs:           make(map[string]*Rig),
-		events:         make([]Event, 0, 1000),
+		events:         make([]Event, 0, maxEventHistory),
 		keys:           DefaultKeyMap(),
 		help:           h,
 		done:           make(chan struct{}),
