@@ -361,71 +361,74 @@ func TestStartLocked_SkipsIfAlreadyRunning(t *testing.T) {
 }
 
 func TestRestartWithBackoff_SkipsIfStartedDuringSleep(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("isProcessAlive uses Signal(nil) on Windows which doesn't reliably detect live processes")
-	}
 	// Verify that restartWithBackoff() re-checks isRunning() after the backoff
 	// sleep to detect if another goroutine started the server during the window.
-	tmpDir := t.TempDir()
-	daemonDir := filepath.Join(tmpDir, "daemon")
-	if err := os.MkdirAll(daemonDir, 0755); err != nil {
-		t.Fatal(err)
-	}
+	//
+	// Previous version used time.Sleep races which caused deadlocks when OS
+	// scheduling varied. This version uses channel-based synchronization via
+	// test hooks for deterministic behavior.
+	sleepStarted := make(chan struct{})
+	sleepDone := make(chan struct{})
 
+	var running atomic.Bool
 	var logMessages []string
-	m := &DoltServerManager{
-		config: &DoltServerConfig{
-			Enabled:             true,
-			Port:                13308,
-			Host:                "127.0.0.1",
-			DataDir:             filepath.Join(tmpDir, "dolt"),
-			LogFile:             filepath.Join(daemonDir, "dolt-server.log"),
-			RestartDelay:        10 * time.Millisecond, // Short delay for testing
-			MaxRestartDelay:     100 * time.Millisecond,
-			MaxRestartsInWindow: 10,
-			RestartWindow:       10 * time.Minute,
-		},
-		townRoot: tmpDir,
-		logger: func(format string, v ...interface{}) {
-			logMessages = append(logMessages, fmt.Sprintf(format, v...))
-		},
+	var logMu sync.Mutex
+
+	m := newTestManager(t)
+	m.logger = func(format string, v ...interface{}) {
+		logMu.Lock()
+		logMessages = append(logMessages, fmt.Sprintf(format, v...))
+		logMu.Unlock()
+	}
+	m.runningFn = func() (int, bool) {
+		if running.Load() {
+			return os.Getpid(), true
+		}
+		return 0, false
+	}
+	m.sleepFn = func(d time.Duration) {
+		close(sleepStarted)
+		<-sleepDone
+	}
+	m.startFn = func() error {
+		t.Error("startLocked should not be called when server started during sleep")
+		return nil
 	}
 
-	// Simulate: during backoff sleep, another goroutine starts the server.
-	// We do this by launching restartWithBackoff in a goroutine and setting
-	// m.process while it's sleeping.
+	// restartWithBackoff expects to be called with m.mu held
 	m.mu.Lock()
 
 	done := make(chan error, 1)
 	go func() {
-		// restartWithBackoff expects to be called with m.mu held
 		done <- m.restartWithBackoff()
 	}()
 
-	// Wait for the goroutine to release the lock during sleep
-	time.Sleep(5 * time.Millisecond)
+	// Wait for the goroutine to enter backoff sleep (lock is released during sleep)
+	<-sleepStarted
 
-	// Simulate another goroutine starting the server by setting m.process
-	m.mu.Lock()
-	self, err := os.FindProcess(os.Getpid())
-	if err != nil {
-		t.Fatal(err)
-	}
-	m.process = self
-	m.mu.Unlock()
+	// Simulate another goroutine starting the server during the backoff window
+	running.Store(true)
+
+	// Let the sleep finish — goroutine will re-acquire lock and check isRunning()
+	close(sleepDone)
 
 	// Wait for restartWithBackoff to complete
-	err = <-done
-
-	if err != nil {
-		t.Fatalf("expected nil error when server started during backoff, got: %v", err)
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("expected nil error when server started during backoff, got: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("restartWithBackoff never completed — possible deadlock")
 	}
 
 	// Verify the skip was logged
+	logMu.Lock()
+	defer logMu.Unlock()
 	found := false
 	for _, msg := range logMessages {
-		if msg == "Dolt server started by another goroutine during backoff, skipping" ||
-			msg == "Dolt server already running, skipping start" {
+		if strings.Contains(msg, "started by another goroutine during backoff") ||
+			strings.Contains(msg, "already running, skipping start") {
 			found = true
 			break
 		}
