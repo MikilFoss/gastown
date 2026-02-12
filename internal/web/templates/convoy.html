@@ -547,11 +547,12 @@
                                 <th>Issue</th>
                                 <th>From</th>
                                 <th>Age</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {{range .Escalations}}
-                            <tr>
+                            <tr class="escalation-row" data-escalation-id="{{.ID}}">
                                 <td>
                                     {{if eq .Severity "critical"}}<span class="badge badge-red">CRIT</span>
                                     {{else if eq .Severity "high"}}<span class="badge badge-orange">HIGH</span>
@@ -564,6 +565,13 @@
                                 </td>
                                 <td>{{.EscalatedBy}}</td>
                                 <td>{{.Age}}</td>
+                                <td class="escalation-actions">
+                                    {{if not .Acked}}
+                                    <button class="esc-btn esc-ack-btn" data-action="ack" data-id="{{.ID}}" title="Acknowledge">👍 Ack</button>
+                                    {{end}}
+                                    <button class="esc-btn esc-resolve-btn" data-action="resolve" data-id="{{.ID}}" title="Resolve">✓ Resolve</button>
+                                    <button class="esc-btn esc-reassign-btn" data-action="reassign" data-id="{{.ID}}" title="Reassign">↻ Reassign</button>
+                                </td>
                             </tr>
                             {{end}}
                         </tbody>

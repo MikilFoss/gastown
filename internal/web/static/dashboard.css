@@ -2255,6 +2255,82 @@
             color: var(--text-primary);
         }
 
+        /* Escalation action buttons */
+        .escalation-actions {
+            display: flex;
+            gap: 4px;
+            flex-wrap: nowrap;
+        }
+
+        .esc-btn {
+            background: var(--bg-card-hover);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+
+        .esc-btn:hover {
+            border-color: var(--border-accent);
+            color: var(--text-primary);
+        }
+
+        .esc-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .esc-ack-btn:hover {
+            background: var(--cyan);
+            border-color: var(--cyan);
+            color: var(--bg-dark);
+        }
+
+        .esc-resolve-btn:hover {
+            background: var(--green);
+            border-color: var(--green);
+            color: var(--bg-dark);
+        }
+
+        .esc-reassign-btn:hover {
+            background: var(--yellow);
+            border-color: var(--yellow);
+            color: var(--bg-dark);
+        }
+
+        .reassign-picker {
+            display: inline-flex;
+            gap: 4px;
+            align-items: center;
+            margin-left: 4px;
+        }
+
+        .reassign-select {
+            background: var(--bg-dark);
+            border: 1px solid var(--border-accent);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 0.7rem;
+            padding: 3px 6px;
+            max-width: 160px;
+        }
+
+        .esc-reassign-confirm {
+            background: var(--green) !important;
+            color: var(--bg-dark) !important;
+            border-color: var(--green) !important;
+        }
+
+        .esc-reassign-cancel {
+            background: transparent !important;
+            color: var(--red) !important;
+            border-color: var(--red) !important;
+        }
+
         @keyframes slideIn {
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
