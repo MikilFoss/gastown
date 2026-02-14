@@ -124,7 +124,7 @@ func runBatchSling(beadIDs []string, rigName string, townBeadsDir string) error 
 		if !slingNoConvoy {
 			existingConvoy := isTrackedByConvoy(beadID)
 			if existingConvoy == "" {
-				convoyID, err := createAutoConvoy(beadID, info.Title)
+				convoyID, err := createAutoConvoy(beadID, info.Title, slingMerge)
 				if err != nil {
 					fmt.Printf("  %s Could not create auto-convoy: %v\n", style.Dim.Render("Warning:"), err)
 				} else {

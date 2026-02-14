@@ -137,8 +137,9 @@ func convoyTracksBead(beadsDir, convoyID, beadID string) bool {
 }
 
 // createAutoConvoy creates an auto-convoy for a single issue and tracks it.
+// mergeStrategy is optional: "direct", "mr", or "local" (empty = default mr).
 // Returns the created convoy ID.
-func createAutoConvoy(beadID, beadTitle string) (string, error) {
+func createAutoConvoy(beadID, beadTitle, mergeStrategy string) (string, error) {
 	townRoot, err := workspace.FindFromCwd()
 	if err != nil {
 		return "", fmt.Errorf("finding town root: %w", err)
@@ -153,6 +154,9 @@ func createAutoConvoy(beadID, beadTitle string) (string, error) {
 	// Create convoy with title "Work: <issue-title>"
 	convoyTitle := fmt.Sprintf("Work: %s", beadTitle)
 	description := fmt.Sprintf("Auto-created convoy tracking %s", beadID)
+	if mergeStrategy != "" {
+		description += fmt.Sprintf("\nMerge: %s", mergeStrategy)
+	}
 
 	createArgs := []string{
 		"create",
