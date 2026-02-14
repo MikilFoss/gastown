@@ -1238,6 +1238,9 @@ func readExistingDoltDatabase(beadsDir string) string {
 // that need the directory to exist, use FindOrCreateRigBeadsDir instead.
 // For read-only operations, handle errors on the returned path gracefully.
 func FindRigBeadsDir(townRoot, rigName string) string {
+	if townRoot == "" || rigName == "" {
+		return ""
+	}
 	if rigName == "hq" {
 		return filepath.Join(townRoot, ".beads")
 	}
@@ -1267,6 +1270,12 @@ func FindRigBeadsDir(townRoot, rigName string) string {
 // exist. Use FindRigBeadsDir for read-only lookups where graceful failure on
 // missing directories is acceptable.
 func FindOrCreateRigBeadsDir(townRoot, rigName string) (string, error) {
+	if townRoot == "" {
+		return "", fmt.Errorf("townRoot cannot be empty")
+	}
+	if rigName == "" {
+		return "", fmt.Errorf("rigName cannot be empty")
+	}
 	if rigName == "hq" {
 		dir := filepath.Join(townRoot, ".beads")
 		if err := os.MkdirAll(dir, 0755); err != nil {

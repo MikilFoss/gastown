@@ -551,6 +551,21 @@ func TestEnsureAllMetadata_PreservesSharedHQ(t *testing.T) {
 func TestFindRigBeadsDir(t *testing.T) {
 	townRoot := t.TempDir()
 
+	// Test empty rigName returns empty string
+	if dir := FindRigBeadsDir(townRoot, ""); dir != "" {
+		t.Errorf("empty rigName: got %q, want empty string", dir)
+	}
+
+	// Test empty townRoot returns empty string
+	if dir := FindRigBeadsDir("", "myrig"); dir != "" {
+		t.Errorf("empty townRoot: got %q, want empty string", dir)
+	}
+
+	// Test both empty returns empty string
+	if dir := FindRigBeadsDir("", ""); dir != "" {
+		t.Errorf("both empty: got %q, want empty string", dir)
+	}
+
 	// Test HQ
 	if dir := FindRigBeadsDir(townRoot, "hq"); dir != filepath.Join(townRoot, ".beads") {
 		t.Errorf("hq beads dir = %q, want %q", dir, filepath.Join(townRoot, ".beads"))
@@ -583,6 +598,21 @@ func TestFindRigBeadsDir(t *testing.T) {
 }
 
 func TestFindOrCreateRigBeadsDir(t *testing.T) {
+	t.Run("empty rigName returns error", func(t *testing.T) {
+		townRoot := t.TempDir()
+		_, err := FindOrCreateRigBeadsDir(townRoot, "")
+		if err == nil {
+			t.Error("expected error for empty rigName, got nil")
+		}
+	})
+
+	t.Run("empty townRoot returns error", func(t *testing.T) {
+		_, err := FindOrCreateRigBeadsDir("", "myrig")
+		if err == nil {
+			t.Error("expected error for empty townRoot, got nil")
+		}
+	})
+
 	t.Run("hq creates directory", func(t *testing.T) {
 		townRoot := t.TempDir()
 		dir, err := FindOrCreateRigBeadsDir(townRoot, "hq")
