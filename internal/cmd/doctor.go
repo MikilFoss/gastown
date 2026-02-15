@@ -217,6 +217,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	// Dolt health checks
 	d.Register(doctor.NewDoltMetadataCheck())
 	d.Register(doctor.NewDoltServerReachableCheck())
+	d.Register(doctor.NewDoltOrphanedDatabaseCheck())
 
 	// Worktree gitdir validity (runs across all rigs, or specific rig with --rig)
 	d.Register(doctor.NewWorktreeGitdirCheck())

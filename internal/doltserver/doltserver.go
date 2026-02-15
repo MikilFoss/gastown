@@ -996,6 +996,118 @@ type BrokenWorkspace struct {
 	LocalDataPath string
 }
 
+// OrphanedDatabase represents a database in .dolt-data/ that is not referenced
+// by any rig's metadata.json. These are leftover from partial setups, renames,
+// or failed migrations.
+type OrphanedDatabase struct {
+	// Name is the database directory name in .dolt-data/.
+	Name string
+
+	// Path is the full path to the database directory.
+	Path string
+
+	// SizeBytes is the total size of the database directory.
+	SizeBytes int64
+}
+
+// FindOrphanedDatabases scans .dolt-data/ for databases that are not referenced
+// by any rig's metadata.json dolt_database field. These orphans consume disk space
+// and are served by the Dolt server unnecessarily.
+func FindOrphanedDatabases(townRoot string) ([]OrphanedDatabase, error) {
+	databases, err := ListDatabases(townRoot)
+	if err != nil {
+		return nil, fmt.Errorf("listing databases: %w", err)
+	}
+	if len(databases) == 0 {
+		return nil, nil
+	}
+
+	// Collect all referenced database names from metadata.json files
+	referenced := collectReferencedDatabases(townRoot)
+
+	// Find databases that exist on disk but aren't referenced
+	config := DefaultConfig(townRoot)
+	var orphans []OrphanedDatabase
+	for _, dbName := range databases {
+		if referenced[dbName] {
+			continue
+		}
+		dbPath := filepath.Join(config.DataDir, dbName)
+		size := dirSize(dbPath)
+		orphans = append(orphans, OrphanedDatabase{
+			Name:      dbName,
+			Path:      dbPath,
+			SizeBytes: size,
+		})
+	}
+
+	return orphans, nil
+}
+
+// collectReferencedDatabases returns a set of database names referenced by
+// any rig's metadata.json dolt_database field.
+func collectReferencedDatabases(townRoot string) map[string]bool {
+	referenced := make(map[string]bool)
+
+	// Check town-level beads (hq)
+	townBeadsDir := filepath.Join(townRoot, ".beads")
+	if db := readExistingDoltDatabase(townBeadsDir); db != "" {
+		referenced[db] = true
+	}
+
+	// Check all rigs from rigs.json
+	rigsPath := filepath.Join(townRoot, "mayor", "rigs.json")
+	data, err := os.ReadFile(rigsPath)
+	if err != nil {
+		return referenced
+	}
+	var config struct {
+		Rigs map[string]interface{} `json:"rigs"`
+	}
+	if err := json.Unmarshal(data, &config); err != nil {
+		return referenced
+	}
+
+	for rigName := range config.Rigs {
+		beadsDir := FindRigBeadsDir(townRoot, rigName)
+		if beadsDir == "" {
+			continue
+		}
+		if db := readExistingDoltDatabase(beadsDir); db != "" {
+			referenced[db] = true
+		}
+	}
+
+	return referenced
+}
+
+// RemoveDatabase removes an orphaned database directory from .dolt-data/.
+// The caller should verify the database is actually orphaned before calling this.
+// If the Dolt server is running, it will DROP the database first.
+func RemoveDatabase(townRoot, dbName string) error {
+	config := DefaultConfig(townRoot)
+	dbPath := filepath.Join(config.DataDir, dbName)
+
+	// Verify the directory exists
+	if _, err := os.Stat(filepath.Join(dbPath, ".dolt")); err != nil {
+		return fmt.Errorf("database %q not found at %s", dbName, dbPath)
+	}
+
+	// If server is running, DROP the database first
+	running, _, _ := IsRunning(townRoot)
+	if running {
+		// Try to DROP — ignore errors (database might not be loaded)
+		_ = serverExecSQL(townRoot, fmt.Sprintf("DROP DATABASE IF EXISTS `%s`", dbName))
+	}
+
+	// Remove the directory
+	if err := os.RemoveAll(dbPath); err != nil {
+		return fmt.Errorf("removing database directory: %w", err)
+	}
+
+	return nil
+}
+
 // FindBrokenWorkspaces scans all rig metadata.json files for Dolt server
 // configuration where the referenced database doesn't exist in .dolt-data/.
 // These workspaces are broken: bd commands will fail or silently create

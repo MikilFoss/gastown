@@ -330,3 +330,87 @@ func (c *DoltServerReachableCheck) hasServerModeMetadata(beadsDir string) bool {
 	}
 	return metadata.DoltMode == "server"
 }
+
+// DoltOrphanedDatabaseCheck detects databases in .dolt-data/ that are not
+// referenced by any rig's metadata.json. These orphans waste disk space and
+// are served unnecessarily by the Dolt server.
+type DoltOrphanedDatabaseCheck struct {
+	FixableCheck
+	orphanNames []string // Cached during Run for use in Fix
+}
+
+// NewDoltOrphanedDatabaseCheck creates a new orphaned database check.
+func NewDoltOrphanedDatabaseCheck() *DoltOrphanedDatabaseCheck {
+	return &DoltOrphanedDatabaseCheck{
+		FixableCheck: FixableCheck{
+			BaseCheck: BaseCheck{
+				CheckName:        "dolt-orphaned-databases",
+				CheckDescription: "Detect orphaned databases in .dolt-data/",
+				CheckCategory:    CategoryCleanup,
+			},
+		},
+	}
+}
+
+// Run checks for orphaned databases.
+func (c *DoltOrphanedDatabaseCheck) Run(ctx *CheckContext) *CheckResult {
+	c.orphanNames = nil
+
+	orphans, err := doltserver.FindOrphanedDatabases(ctx.TownRoot)
+	if err != nil {
+		return &CheckResult{
+			Name:     c.Name(),
+			Status:   StatusWarning,
+			Message:  fmt.Sprintf("Could not check for orphaned databases: %v", err),
+			Category: c.CheckCategory,
+		}
+	}
+
+	if len(orphans) == 0 {
+		return &CheckResult{
+			Name:     c.Name(),
+			Status:   StatusOK,
+			Message:  "No orphaned databases in .dolt-data/",
+			Category: c.CheckCategory,
+		}
+	}
+
+	details := make([]string, len(orphans))
+	for i, o := range orphans {
+		details[i] = fmt.Sprintf("Orphaned: %s (%s)", o.Name, formatBytes(o.SizeBytes))
+		c.orphanNames = append(c.orphanNames, o.Name)
+	}
+
+	return &CheckResult{
+		Name:     c.Name(),
+		Status:   StatusWarning,
+		Message:  fmt.Sprintf("%d orphaned database(s) in .dolt-data/", len(orphans)),
+		Details:  details,
+		FixHint:  "Run 'gt dolt cleanup' to remove orphaned databases",
+		Category: c.CheckCategory,
+	}
+}
+
+// Fix removes orphaned databases.
+func (c *DoltOrphanedDatabaseCheck) Fix(ctx *CheckContext) error {
+	for _, name := range c.orphanNames {
+		if err := doltserver.RemoveDatabase(ctx.TownRoot, name); err != nil {
+			return fmt.Errorf("removing orphaned database %s: %w", name, err)
+		}
+	}
+	return nil
+}
+
+// formatBytes returns a human-readable size string.
+func formatBytes(b int64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
+}
