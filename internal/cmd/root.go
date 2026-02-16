@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/steveyegge/gastown/internal/cli"
 	"github.com/steveyegge/gastown/internal/config"
+	"github.com/steveyegge/gastown/internal/session"
 	"github.com/steveyegge/gastown/internal/style"
 	"github.com/steveyegge/gastown/internal/ui"
 	"github.com/steveyegge/gastown/internal/version"
@@ -92,6 +93,12 @@ func persistentPreRun(cmd *cobra.Command, args []string) error {
 
 	// Initialize CLI theme (dark/light mode support)
 	initCLITheme()
+
+	// Initialize session prefix registry from rigs.json.
+	// Best-effort: if town root not found, the default "gt" prefix is used.
+	if townRoot, err := workspace.FindFromCwd(); err == nil && townRoot != "" {
+		_ = session.InitRegistry(townRoot)
+	}
 
 	// Get the root command name being run
 	cmdName := cmd.Name()

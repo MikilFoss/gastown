@@ -184,10 +184,11 @@ func runNudge(cmd *cobra.Command, args []string) error {
 		if roleInfo.Rig == "" {
 			return fmt.Errorf("cannot determine rig for %s shortcut (not in a rig context)", target)
 		}
+		rigPrefix := session.PrefixFor(roleInfo.Rig)
 		if target == "witness" {
-			target = session.WitnessSessionName(roleInfo.Rig)
+			target = session.WitnessSessionName(rigPrefix)
 		} else {
-			target = session.RefinerySessionName(roleInfo.Rig)
+			target = session.RefinerySessionName(rigPrefix)
 		}
 	}
 

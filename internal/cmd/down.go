@@ -459,7 +459,7 @@ func verifyShutdown(t *tmux.Tmux, townRoot string) []string {
 	sessions, err := t.ListSessions()
 	if err == nil {
 		for _, sess := range sessions {
-			if strings.HasPrefix(sess, "gt-") || strings.HasPrefix(sess, "hq-") {
+			if session.IsKnownSession(sess) {
 				respawned = append(respawned, fmt.Sprintf("tmux session %s", sess))
 			}
 		}

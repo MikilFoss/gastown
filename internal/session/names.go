@@ -5,8 +5,8 @@ import (
 	"fmt"
 )
 
-// Prefix is the common prefix for rig-level Gas Town tmux sessions.
-const Prefix = "gt-"
+// DefaultPrefix is the default beads prefix used when no rig-specific prefix is known.
+const DefaultPrefix = "gt"
 
 // HQPrefix is the prefix for town-level services (Mayor, Deacon).
 const HQPrefix = "hq-"
@@ -24,23 +24,27 @@ func DeaconSessionName() string {
 }
 
 // WitnessSessionName returns the session name for a rig's Witness agent.
-func WitnessSessionName(rig string) string {
-	return fmt.Sprintf("%s%s-witness", Prefix, rig)
+// rigPrefix is the rig's beads prefix (e.g., "gt" for gastown, "bd" for beads).
+func WitnessSessionName(rigPrefix string) string {
+	return fmt.Sprintf("%s-witness", rigPrefix)
 }
 
 // RefinerySessionName returns the session name for a rig's Refinery agent.
-func RefinerySessionName(rig string) string {
-	return fmt.Sprintf("%s%s-refinery", Prefix, rig)
+// rigPrefix is the rig's beads prefix (e.g., "gt" for gastown, "bd" for beads).
+func RefinerySessionName(rigPrefix string) string {
+	return fmt.Sprintf("%s-refinery", rigPrefix)
 }
 
 // CrewSessionName returns the session name for a crew worker in a rig.
-func CrewSessionName(rig, name string) string {
-	return fmt.Sprintf("%s%s-crew-%s", Prefix, rig, name)
+// rigPrefix is the rig's beads prefix (e.g., "gt" for gastown, "bd" for beads).
+func CrewSessionName(rigPrefix, name string) string {
+	return fmt.Sprintf("%s-crew-%s", rigPrefix, name)
 }
 
 // PolecatSessionName returns the session name for a polecat in a rig.
-func PolecatSessionName(rig, name string) string {
-	return fmt.Sprintf("%s%s-%s", Prefix, rig, name)
+// rigPrefix is the rig's beads prefix (e.g., "gt" for gastown, "bd" for beads).
+func PolecatSessionName(rigPrefix, name string) string {
+	return fmt.Sprintf("%s-%s", rigPrefix, name)
 }
 
 // OverseerSessionName returns the session name for the human operator.
@@ -55,4 +59,3 @@ func OverseerSessionName() string {
 func BootSessionName() string {
 	return HQPrefix + "boot"
 }
-

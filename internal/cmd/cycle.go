@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os/exec"
 	"sort"
-	"strings"
 
 	"github.com/spf13/cobra"
+	sessionpkg "github.com/steveyegge/gastown/internal/session"
 )
 
 // cycleSession is the --session flag for cycle next/prev commands.
@@ -98,8 +98,8 @@ func cycleToSession(direction int, sessionOverride string) error {
 		}
 	}
 
-	// Check if it's a crew session (format: gt-<rig>-crew-<name>)
-	if strings.HasPrefix(session, "gt-") && strings.Contains(session, "-crew-") {
+	// Check if it's a crew session (format: <prefix>-crew-<name>)
+	if identity, err := sessionpkg.ParseSessionName(session); err == nil && identity.Role == sessionpkg.RoleCrew {
 		return cycleCrewSession(direction, session)
 	}
 
@@ -119,19 +119,14 @@ func cycleToSession(direction int, sessionOverride string) error {
 
 // parseRigInfraSession extracts rig name if this is a witness or refinery session.
 // Returns empty string if not a rig infra session.
-// Format: gt-<rig>-witness or gt-<rig>-refinery
-func parseRigInfraSession(session string) string {
-	if !strings.HasPrefix(session, "gt-") {
+// Format: <prefix>-witness or <prefix>-refinery
+func parseRigInfraSession(sess string) string {
+	identity, err := sessionpkg.ParseSessionName(sess)
+	if err != nil {
 		return ""
 	}
-	rest := session[3:] // Remove "gt-" prefix
-
-	// Check for -witness or -refinery suffix
-	if strings.HasSuffix(rest, "-witness") {
-		return strings.TrimSuffix(rest, "-witness")
-	}
-	if strings.HasSuffix(rest, "-refinery") {
-		return strings.TrimSuffix(rest, "-refinery")
+	if identity.Role == sessionpkg.RoleWitness || identity.Role == sessionpkg.RoleRefinery {
+		return identity.Rig
 	}
 	return ""
 }

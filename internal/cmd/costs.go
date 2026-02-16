@@ -259,20 +259,20 @@ func runLiveCosts() error {
 	var costs []SessionCost
 	var total float64
 
-	for _, session := range sessions {
-		// Only process Gas Town sessions (start with "gt-")
-		if !strings.HasPrefix(session, constants.SessionPrefix) {
+	for _, sess := range sessions {
+		// Only process Gas Town sessions
+		if !session.IsKnownSession(sess) {
 			continue
 		}
 
 		// Parse session name to get role/rig/worker
-		role, rig, worker := parseSessionName(session)
+		role, rig, worker := parseSessionName(sess)
 
 		// Get working directory of the session
-		workDir, err := getTmuxSessionWorkDir(session)
+		workDir, err := getTmuxSessionWorkDir(sess)
 		if err != nil {
 			if costsVerbose {
-				fmt.Fprintf(os.Stderr, "[costs] could not get workdir for %s: %v\n", session, err)
+				fmt.Fprintf(os.Stderr, "[costs] could not get workdir for %s: %v\n", sess, err)
 			}
 			continue
 		}
@@ -281,17 +281,17 @@ func runLiveCosts() error {
 		cost, err := extractCostFromWorkDir(workDir)
 		if err != nil {
 			if costsVerbose {
-				fmt.Fprintf(os.Stderr, "[costs] could not extract cost for %s: %v\n", session, err)
+				fmt.Fprintf(os.Stderr, "[costs] could not extract cost for %s: %v\n", sess, err)
 			}
 			// Still include the session with zero cost
 			cost = 0.0
 		}
 
 		// Check if an agent appears to be running
-		running := t.IsAgentRunning(session)
+		running := t.IsAgentRunning(sess)
 
 		costs = append(costs, SessionCost{
-			Session: session,
+			Session: sess,
 			Role:    role,
 			Rig:     rig,
 			Worker:  worker,

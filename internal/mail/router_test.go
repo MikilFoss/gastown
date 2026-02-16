@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/steveyegge/gastown/internal/session"
 )
 
 func TestDetectTownRoot(t *testing.T) {
@@ -90,6 +92,14 @@ func TestIsTownLevelAddress(t *testing.T) {
 }
 
 func TestAddressToSessionIDs(t *testing.T) {
+	// Set up prefix registry for test
+	reg := session.NewPrefixRegistry()
+	reg.Register("gt", "gastown")
+	reg.Register("bd", "beads")
+	old := session.DefaultRegistry()
+	session.SetDefaultRegistry(reg)
+	defer session.SetDefaultRegistry(old)
+
 	tests := []struct {
 		address string
 		want    []string
@@ -103,16 +113,16 @@ func TestAddressToSessionIDs(t *testing.T) {
 		{"deacon", []string{"hq-deacon"}},
 
 		// Rig singletons - single session (no crew/polecat ambiguity)
-		{"gastown/refinery", []string{"gt-gastown-refinery"}},
-		{"beads/witness", []string{"gt-beads-witness"}},
+		{"gastown/refinery", []string{"gt-refinery"}},
+		{"beads/witness", []string{"bd-witness"}},
 
 		// Ambiguous addresses - try both crew and polecat variants
-		{"gastown/Toast", []string{"gt-gastown-crew-Toast", "gt-gastown-Toast"}},
-		{"beads/ruby", []string{"gt-beads-crew-ruby", "gt-beads-ruby"}},
+		{"gastown/Toast", []string{"gt-crew-Toast", "gt-Toast"}},
+		{"beads/ruby", []string{"bd-crew-ruby", "bd-ruby"}},
 
 		// Explicit crew/polecat - single session
-		{"gastown/crew/max", []string{"gt-gastown-crew-max"}},
-		{"gastown/polecats/nux", []string{"gt-gastown-polecats-nux"}},
+		{"gastown/crew/max", []string{"gt-crew-max"}},
+		{"gastown/polecats/nux", []string{"gt-nux"}},
 
 		// Invalid addresses - empty result
 		{"gastown/", nil},  // Empty target
@@ -137,6 +147,14 @@ func TestAddressToSessionIDs(t *testing.T) {
 }
 
 func TestAddressToSessionID(t *testing.T) {
+	// Set up prefix registry for test
+	reg := session.NewPrefixRegistry()
+	reg.Register("gt", "gastown")
+	reg.Register("bd", "beads")
+	old := session.DefaultRegistry()
+	session.SetDefaultRegistry(reg)
+	defer session.SetDefaultRegistry(old)
+
 	// Deprecated wrapper - returns first candidate from addressToSessionIDs
 	tests := []struct {
 		address string
@@ -146,9 +164,9 @@ func TestAddressToSessionID(t *testing.T) {
 		{"mayor", "hq-mayor"},
 		{"mayor/", "hq-mayor"},
 		{"deacon", "hq-deacon"},
-		{"gastown/refinery", "gt-gastown-refinery"},
-		{"gastown/Toast", "gt-gastown-crew-Toast"}, // First candidate is crew
-		{"beads/witness", "gt-beads-witness"},
+		{"gastown/refinery", "gt-refinery"},
+		{"gastown/Toast", "gt-crew-Toast"}, // First candidate is crew
+		{"beads/witness", "bd-witness"},
 		{"gastown/", ""},   // Empty target
 		{"gastown", ""},    // No slash
 		{"", ""},           // Empty address

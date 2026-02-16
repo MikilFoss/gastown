@@ -4,6 +4,7 @@ import (
 	"os/exec"
 	"testing"
 
+	"github.com/steveyegge/gastown/internal/session"
 	"github.com/steveyegge/gastown/internal/tmux"
 )
 
@@ -58,21 +59,32 @@ func TestIsGitRemoteURL(t *testing.T) {
 	}
 }
 
+func setupRigTestRegistry(t *testing.T) {
+	t.Helper()
+	reg := session.NewPrefixRegistry()
+	reg.Register("tr", "testrig1223")
+	reg.Register("or", "otherrig")
+	old := session.DefaultRegistry()
+	session.SetDefaultRegistry(reg)
+	t.Cleanup(func() { session.SetDefaultRegistry(old) })
+}
+
 func TestFindRigSessions(t *testing.T) {
 	if _, err := exec.LookPath("tmux"); err != nil {
 		t.Skip("tmux not installed")
 	}
+	setupRigTestRegistry(t)
 
 	tm := tmux.NewTmux()
 
-	// Create sessions that match our test rig prefix
+	// Create sessions that match our test rig prefix (tr- for testrig1223)
 	matching := []string{
-		"gt-testrig1223-witness",
-		"gt-testrig1223-refinery",
-		"gt-testrig1223-alpha",
+		"tr-witness",
+		"tr-refinery",
+		"tr-alpha",
 	}
-	// Create a non-matching session
-	nonMatching := "gt-otherrig-witness"
+	// Create a non-matching session (or- for otherrig)
+	nonMatching := "or-witness"
 
 	for _, name := range append(matching, nonMatching) {
 		_ = tm.KillSession(name) // clean up any leftovers
@@ -118,6 +130,13 @@ func TestFindRigSessions_NoSessions(t *testing.T) {
 	if _, err := exec.LookPath("tmux"); err != nil {
 		t.Skip("tmux not installed")
 	}
+
+	// Register a unique prefix for a rig that has no sessions
+	reg := session.NewPrefixRegistry()
+	reg.Register("zz", "nonexistentrig999")
+	old := session.DefaultRegistry()
+	session.SetDefaultRegistry(reg)
+	defer session.SetDefaultRegistry(old)
 
 	tm := tmux.NewTmux()
 	got, err := findRigSessions(tm, "nonexistentrig999")

@@ -119,7 +119,7 @@ func findRigPolecatSessions(rigName string) ([]string, error) { //nolint:unparam
 		return nil, nil
 	}
 
-	prefix := fmt.Sprintf("gt-%s-", rigName)
+	prefix := session.PrefixFor(rigName) + "-"
 	var sessions []string
 
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {

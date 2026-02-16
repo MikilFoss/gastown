@@ -1431,25 +1431,34 @@ func addressToSessionIDs(address string) []string {
 
 	rig := parts[0]
 	target := parts[1]
+	rigPrefix := session.PrefixFor(rig)
 
 	// If target already has crew/ or polecats/ prefix, use it directly
-	// e.g., "gastown/crew/holden" → "gt-gastown-crew-holden"
-	if strings.HasPrefix(target, "crew/") || strings.HasPrefix(target, "polecats/") {
-		return []string{fmt.Sprintf("gt-%s-%s", rig, strings.ReplaceAll(target, "/", "-"))}
+	// e.g., "gastown/crew/holden" → "gt-crew-holden"
+	if strings.HasPrefix(target, "crew/") {
+		crewName := strings.TrimPrefix(target, "crew/")
+		return []string{session.CrewSessionName(rigPrefix, crewName)}
+	}
+	if strings.HasPrefix(target, "polecats/") {
+		polecatName := strings.TrimPrefix(target, "polecats/")
+		return []string{session.PolecatSessionName(rigPrefix, polecatName)}
 	}
 
 	// Special cases that don't need crew variant
-	if target == "witness" || target == "refinery" {
-		return []string{fmt.Sprintf("gt-%s-%s", rig, target)}
+	if target == "witness" {
+		return []string{session.WitnessSessionName(rigPrefix)}
+	}
+	if target == "refinery" {
+		return []string{session.RefinerySessionName(rigPrefix)}
 	}
 
 	// For normalized addresses like "gastown/holden", try both:
-	// 1. Crew format: gt-gastown-crew-holden
-	// 2. Polecat format: gt-gastown-holden
+	// 1. Crew format: gt-crew-holden
+	// 2. Polecat format: gt-holden
 	// Return crew first since crew workers are more commonly missed.
 	return []string{
-		session.CrewSessionName(rig, target),    // gt-rig-crew-name
-		session.PolecatSessionName(rig, target), // gt-rig-name
+		session.CrewSessionName(rigPrefix, target),    // <prefix>-crew-name
+		session.PolecatSessionName(rigPrefix, target), // <prefix>-name
 	}
 }
 

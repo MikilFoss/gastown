@@ -94,8 +94,8 @@ func (c *OrphanSessionCheck) Run(ctx *CheckContext) *CheckResult {
 			continue
 		}
 
-		// Only check gt-* and hq-* sessions (Gas Town sessions)
-		if !strings.HasPrefix(sess, "gt-") && !strings.HasPrefix(sess, "hq-") {
+		// Only check sessions that parse as Gas Town sessions
+		if _, err := session.ParseSessionName(sess); err != nil {
 			continue
 		}
 
@@ -249,10 +249,9 @@ func (c *OrphanSessionCheck) isValidSession(sess string, validRigs []string, may
 
 	if !rigFound && identity.Role == session.RolePolecat {
 		// Try alternate rig interpretations: check if any valid rig
-		// is a prefix of the session suffix (after gt-)
-		suffix := strings.TrimPrefix(sess, session.Prefix)
+		// matches the parsed prefix (via the registry)
 		for _, r := range validRigs {
-			if strings.HasPrefix(suffix, r+"-") {
+			if session.PrefixFor(r) == identity.Prefix {
 				rigFound = true
 				break
 			}

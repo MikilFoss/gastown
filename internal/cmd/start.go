@@ -552,8 +552,8 @@ func runShutdown(cmd *cobra.Command, args []string) error {
 // categorizeSessions splits sessions into those to stop and those to preserve.
 func categorizeSessions(sessions []string) (toStop, preserved []string) {
 	for _, sess := range sessions {
-		// Gas Town sessions use gt- (rig-level) or hq- (town-level) prefix
-		if !strings.HasPrefix(sess, "gt-") && !strings.HasPrefix(sess, "hq-") {
+		// Gas Town sessions use rig-specific prefixes or hq- (town-level)
+		if !session.IsKnownSession(sess) {
 			continue // Not a Gas Town session
 		}
 

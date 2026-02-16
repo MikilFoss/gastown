@@ -19,6 +19,7 @@ import (
 	"github.com/steveyegge/gastown/internal/git"
 	"github.com/steveyegge/gastown/internal/mail"
 	"github.com/steveyegge/gastown/internal/rig"
+	"github.com/steveyegge/gastown/internal/session"
 	"github.com/steveyegge/gastown/internal/style"
 	"github.com/steveyegge/gastown/internal/tmux"
 	"github.com/steveyegge/gastown/internal/workspace"
@@ -222,7 +223,7 @@ func runStatusOnce(_ *cobra.Command, _ []string) error {
 		var sessionMu sync.Mutex
 		var sessionWg sync.WaitGroup
 		for _, s := range sessions {
-			if strings.HasPrefix(s, "gt-") || strings.HasPrefix(s, "hq-") {
+			if session.IsKnownSession(s) {
 				sessionWg.Add(1)
 				go func(name string) {
 					defer sessionWg.Done()

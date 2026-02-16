@@ -4,7 +4,19 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/steveyegge/gastown/internal/session"
 )
+
+func setupNudgeTestRegistry(t *testing.T) {
+	t.Helper()
+	reg := session.NewPrefixRegistry()
+	reg.Register("gt", "gastown")
+	reg.Register("bd", "beads")
+	old := session.DefaultRegistry()
+	session.SetDefaultRegistry(reg)
+	t.Cleanup(func() { session.SetDefaultRegistry(old) })
+}
 
 func TestNudgeStdinConflict(t *testing.T) {
 	// Save and restore package-level flags
@@ -29,18 +41,19 @@ func TestNudgeStdinConflict(t *testing.T) {
 }
 
 func TestResolveNudgePattern(t *testing.T) {
-	// Create test agent sessions (mayor/deacon use hq- prefix)
+	setupNudgeTestRegistry(t)
+	// Create test agent sessions (using rig prefixes)
 	agents := []*AgentSession{
 		{Name: "hq-mayor", Type: AgentMayor},
 		{Name: "hq-deacon", Type: AgentDeacon},
-		{Name: "gt-gastown-witness", Type: AgentWitness, Rig: "gastown"},
-		{Name: "gt-gastown-refinery", Type: AgentRefinery, Rig: "gastown"},
-		{Name: "gt-gastown-crew-max", Type: AgentCrew, Rig: "gastown", AgentName: "max"},
-		{Name: "gt-gastown-crew-jack", Type: AgentCrew, Rig: "gastown", AgentName: "jack"},
-		{Name: "gt-gastown-alpha", Type: AgentPolecat, Rig: "gastown", AgentName: "alpha"},
-		{Name: "gt-gastown-beta", Type: AgentPolecat, Rig: "gastown", AgentName: "beta"},
-		{Name: "gt-beads-witness", Type: AgentWitness, Rig: "beads"},
-		{Name: "gt-beads-gamma", Type: AgentPolecat, Rig: "beads", AgentName: "gamma"},
+		{Name: "gt-witness", Type: AgentWitness, Rig: "gastown"},
+		{Name: "gt-refinery", Type: AgentRefinery, Rig: "gastown"},
+		{Name: "gt-crew-max", Type: AgentCrew, Rig: "gastown", AgentName: "max"},
+		{Name: "gt-crew-jack", Type: AgentCrew, Rig: "gastown", AgentName: "jack"},
+		{Name: "gt-alpha", Type: AgentPolecat, Rig: "gastown", AgentName: "alpha"},
+		{Name: "gt-beta", Type: AgentPolecat, Rig: "gastown", AgentName: "beta"},
+		{Name: "bd-witness", Type: AgentWitness, Rig: "beads"},
+		{Name: "bd-gamma", Type: AgentPolecat, Rig: "beads", AgentName: "gamma"},
 	}
 
 	tests := []struct {
@@ -61,42 +74,42 @@ func TestResolveNudgePattern(t *testing.T) {
 		{
 			name:     "specific witness",
 			pattern:  "gastown/witness",
-			expected: []string{"gt-gastown-witness"},
+			expected: []string{"gt-witness"},
 		},
 		{
 			name:     "all witnesses",
 			pattern:  "*/witness",
-			expected: []string{"gt-gastown-witness", "gt-beads-witness"},
+			expected: []string{"gt-witness", "bd-witness"},
 		},
 		{
 			name:     "specific refinery",
 			pattern:  "gastown/refinery",
-			expected: []string{"gt-gastown-refinery"},
+			expected: []string{"gt-refinery"},
 		},
 		{
 			name:     "all polecats in rig",
 			pattern:  "gastown/polecats/*",
-			expected: []string{"gt-gastown-alpha", "gt-gastown-beta"},
+			expected: []string{"gt-alpha", "gt-beta"},
 		},
 		{
 			name:     "specific polecat",
 			pattern:  "gastown/polecats/alpha",
-			expected: []string{"gt-gastown-alpha"},
+			expected: []string{"gt-alpha"},
 		},
 		{
 			name:     "all crew in rig",
 			pattern:  "gastown/crew/*",
-			expected: []string{"gt-gastown-crew-max", "gt-gastown-crew-jack"},
+			expected: []string{"gt-crew-max", "gt-crew-jack"},
 		},
 		{
 			name:     "specific crew member",
 			pattern:  "gastown/crew/max",
-			expected: []string{"gt-gastown-crew-max"},
+			expected: []string{"gt-crew-max"},
 		},
 		{
 			name:     "legacy polecat format",
 			pattern:  "gastown/alpha",
-			expected: []string{"gt-gastown-alpha"},
+			expected: []string{"gt-alpha"},
 		},
 		{
 			name:     "no matches",
@@ -136,6 +149,7 @@ func TestResolveNudgePattern(t *testing.T) {
 }
 
 func TestSessionNameToAddress(t *testing.T) {
+	setupNudgeTestRegistry(t)
 	tests := []struct {
 		name        string
 		sessionName string
@@ -153,31 +167,31 @@ func TestSessionNameToAddress(t *testing.T) {
 		},
 		{
 			name:        "witness",
-			sessionName: "gt-gastown-witness",
+			sessionName: "gt-witness",
 			expected:    "gastown/witness",
 		},
 		{
 			name:        "refinery",
-			sessionName: "gt-gastown-refinery",
+			sessionName: "gt-refinery",
 			expected:    "gastown/refinery",
 		},
 		{
 			name:        "crew member",
-			sessionName: "gt-gastown-crew-max",
+			sessionName: "gt-crew-max",
 			expected:    "gastown/crew/max",
 		},
 		{
 			name:        "polecat",
-			sessionName: "gt-gastown-alpha",
+			sessionName: "gt-alpha",
 			expected:    "gastown/alpha",
 		},
 		{
 			name:        "unrecognized format",
-			sessionName: "random-session",
+			sessionName: "plaintext",
 			expected:    "",
 		},
 		{
-			name:        "gt prefix but no rig",
+			name:        "gt prefix but no name",
 			sessionName: "gt-",
 			expected:    "",
 		},

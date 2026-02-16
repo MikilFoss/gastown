@@ -148,7 +148,7 @@ func runThemeApply(cmd *cobra.Command, args []string) error {
 	// Apply to matching sessions
 	applied := 0
 	for _, sess := range sessions {
-		if !strings.HasPrefix(sess, "gt-") && !strings.HasPrefix(sess, "hq-") {
+		if !session.IsKnownSession(sess) {
 			continue
 		}
 

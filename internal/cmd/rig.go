@@ -1955,10 +1955,10 @@ func syncRigHooks(townRoot, rigName string) error {
 }
 
 // findRigSessions returns all tmux sessions belonging to the given rig.
-// All rig sessions share the "gt-{rig}-" prefix, so this catches witness,
+// All rig sessions share the "<rigPrefix>-" prefix, so this catches witness,
 // refinery, polecat, and crew sessions in one pass.
 func findRigSessions(t *tmux.Tmux, rigName string) ([]string, error) {
-	prefix := session.Prefix + rigName + "-"
+	prefix := session.PrefixFor(rigName) + "-"
 	all, err := t.ListSessions()
 	if err != nil {
 		return nil, fmt.Errorf("listing tmux sessions: %w", err)

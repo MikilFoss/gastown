@@ -614,30 +614,22 @@ func sessionWorkDir(sessionName, townRoot string) (string, error) {
 		}
 		return fmt.Sprintf("%s/%s/crew/%s", townRoot, rig, name), nil
 
-	case strings.HasSuffix(sessionName, "-witness"):
-		// gt-<rig>-witness -> <townRoot>/<rig>/witness
-		// Note: witness doesn't have a /rig worktree like refinery does
-		rig := strings.TrimPrefix(sessionName, "gt-")
-		rig = strings.TrimSuffix(rig, "-witness")
-		return fmt.Sprintf("%s/%s/witness", townRoot, rig), nil
-
-	case strings.HasSuffix(sessionName, "-refinery"):
-		// gt-<rig>-refinery -> <townRoot>/<rig>/refinery/rig
-		rig := strings.TrimPrefix(sessionName, "gt-")
-		rig = strings.TrimSuffix(rig, "-refinery")
-		return fmt.Sprintf("%s/%s/refinery/rig", townRoot, rig), nil
-
 	default:
-		// Assume polecat: gt-<rig>-<name> -> <townRoot>/<rig>/polecats/<name>
-		// Use session.ParseSessionName to determine rig and name
+		// Parse session name to determine role and resolve paths
 		identity, err := session.ParseSessionName(sessionName)
 		if err != nil {
 			return "", fmt.Errorf("unknown session type: %s (%w)", sessionName, err)
 		}
-		if identity.Role != session.RolePolecat {
+		switch identity.Role {
+		case session.RoleWitness:
+			return fmt.Sprintf("%s/%s/witness", townRoot, identity.Rig), nil
+		case session.RoleRefinery:
+			return fmt.Sprintf("%s/%s/refinery/rig", townRoot, identity.Rig), nil
+		case session.RolePolecat:
+			return fmt.Sprintf("%s/%s/polecats/%s", townRoot, identity.Rig, identity.Name), nil
+		default:
 			return "", fmt.Errorf("unknown session type: %s (role %s, try specifying role explicitly)", sessionName, identity.Role)
 		}
-		return fmt.Sprintf("%s/%s/polecats/%s", townRoot, identity.Rig, identity.Name), nil
 	}
 }
 
