@@ -819,6 +819,72 @@ func (g *Git) ListBranches(pattern string) ([]string, error) {
 	return strings.Split(out, "\n"), nil
 }
 
+// ListRemoteBranches lists remote-tracking branches matching a pattern.
+// The pattern matches against the branch name without the remote prefix,
+// using a prefix match (e.g., "polecat/*" matches any branch starting with "polecat/").
+// Returns branch names without the remote prefix (e.g., "polecat/foo").
+func (g *Git) ListRemoteBranches(remote, pattern string) ([]string, error) {
+	// Use for-each-ref to list remote tracking branches
+	refPrefix := fmt.Sprintf("refs/remotes/%s/", remote)
+	args := []string{"for-each-ref", "--format=%(refname:short)", refPrefix}
+	out, err := g.run(args...)
+	if err != nil {
+		return nil, err
+	}
+	if out == "" {
+		return nil, nil
+	}
+
+	// Extract the prefix from the pattern for matching.
+	// Git's branch pattern "polecat/*" means "anything under polecat/",
+	// including nested paths like "polecat/rictus/foo". We replicate this
+	// by doing a prefix match on the part before "/*".
+	var matchPrefix string
+	if pattern != "" {
+		if strings.HasSuffix(pattern, "/*") {
+			matchPrefix = strings.TrimSuffix(pattern, "*")
+		} else if strings.Contains(pattern, "*") {
+			// For other glob patterns, fall back to filepath.Match per-segment
+			matchPrefix = ""
+		} else {
+			// Exact match
+			matchPrefix = pattern
+		}
+	}
+
+	// Filter by pattern and strip remote prefix
+	var branches []string
+	prefix := remote + "/"
+	for _, ref := range strings.Split(out, "\n") {
+		ref = strings.TrimSpace(ref)
+		if ref == "" {
+			continue
+		}
+		// Strip the "origin/" prefix to get the branch name
+		branchName := strings.TrimPrefix(ref, prefix)
+		if branchName == ref {
+			continue // Didn't have the expected prefix
+		}
+		// Match against pattern if provided
+		if pattern != "" {
+			if matchPrefix != "" {
+				// Prefix-based matching (handles "polecat/*" matching "polecat/a/b")
+				if !strings.HasPrefix(branchName, matchPrefix) {
+					continue
+				}
+			} else {
+				// Fallback to filepath.Match for other patterns
+				matched, err := filepath.Match(pattern, branchName)
+				if err != nil || !matched {
+					continue
+				}
+			}
+		}
+		branches = append(branches, branchName)
+	}
+	return branches, nil
+}
+
 // ResetBranch force-updates a branch to point to a ref.
 // This is useful for resetting stale polecat branches to main.
 // NOTE: This uses `git branch -f` which fails on the currently checked-out branch.

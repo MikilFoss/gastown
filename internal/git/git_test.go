@@ -1178,6 +1178,71 @@ func TestSubmoduleChanges_NoSubmodules(t *testing.T) {
 	}
 }
 
+func TestListRemoteBranches(t *testing.T) {
+	localDir, _, _ := initTestRepoWithRemote(t)
+	g := NewGit(localDir)
+
+	// Create and push some branches, including nested polecat paths
+	for _, name := range []string{
+		"polecat/alpha-123",
+		"polecat/beta-456",
+		"polecat/rictus/gt-abc@xyz", // nested polecat path (real naming convention)
+		"feature/unrelated",
+	} {
+		if err := g.CreateBranch(name); err != nil {
+			t.Fatalf("CreateBranch(%s): %v", name, err)
+		}
+		cmd := exec.Command("git", "push", "origin", name)
+		cmd.Dir = localDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("push %s: %v", name, err)
+		}
+	}
+
+	// Fetch to ensure we have remote tracking refs
+	if err := g.Fetch("origin"); err != nil {
+		t.Fatalf("Fetch: %v", err)
+	}
+
+	// List all remote branches matching polecat/*
+	branches, err := g.ListRemoteBranches("origin", "polecat/*")
+	if err != nil {
+		t.Fatalf("ListRemoteBranches: %v", err)
+	}
+
+	if len(branches) != 3 {
+		t.Fatalf("expected 3 remote polecat branches, got %d: %v", len(branches), branches)
+	}
+
+	// Verify the branch names (without origin/ prefix)
+	found := make(map[string]bool)
+	for _, b := range branches {
+		found[b] = true
+	}
+	if !found["polecat/alpha-123"] {
+		t.Error("expected polecat/alpha-123 in results")
+	}
+	if !found["polecat/beta-456"] {
+		t.Error("expected polecat/beta-456 in results")
+	}
+	if !found["polecat/rictus/gt-abc@xyz"] {
+		t.Error("expected polecat/rictus/gt-abc@xyz in results (nested path)")
+	}
+	if found["feature/unrelated"] {
+		t.Error("feature/unrelated should not match polecat/* pattern")
+	}
+
+	// List with no pattern should return all remote branches
+	allBranches, err := g.ListRemoteBranches("origin", "")
+	if err != nil {
+		t.Fatalf("ListRemoteBranches (no pattern): %v", err)
+	}
+	// Should include main + 3 polecat + 1 feature = at least 5
+	if len(allBranches) < 5 {
+		t.Errorf("expected at least 5 remote branches, got %d: %v", len(allBranches), allBranches)
+	}
+}
+
 func TestPushSubmoduleCommit(t *testing.T) {
 	parent, subRemote := initTestRepoWithSubmodule(t)
 
