@@ -138,10 +138,27 @@ func getMetadataMu(path string) *sync.Mutex {
 	return mu.(*sync.Mutex)
 }
 
+// IsLocalAddress reports whether host refers to the local machine.
+// A host is local if it is empty or matches one of the standard loopback
+// addresses (127.0.0.1, localhost, ::1, [::1]).
+// This is the canonical check for the remote-dolt feature; both doltserver.Config
+// and daemon.DoltServerManager should use this instead of inlining their own lists.
+func IsLocalAddress(host string) bool {
+	switch host {
+	case "", "127.0.0.1", "localhost", "::1", "[::1]":
+		return true
+	default:
+		return false
+	}
+}
+
 // Config holds Dolt server configuration.
 type Config struct {
 	// TownRoot is the Gas Town workspace root.
 	TownRoot string
+
+	// Host is the bind/connect address. Empty means local (127.0.0.1).
+	Host string
 
 	// Port is the MySQL protocol port.
 	Port int
@@ -163,6 +180,12 @@ type Config struct {
 	// Set to 0 to use the Dolt default (1000). Gas Town defaults to 50 to prevent
 	// connection storms during mass polecat slings.
 	MaxConnections int
+}
+
+// IsRemote reports whether this configuration targets a remote Dolt server
+// (i.e., the Host is not a loopback/local address).
+func (c *Config) IsRemote() bool {
+	return !IsLocalAddress(c.Host)
 }
 
 // DefaultConfig returns the default Dolt server configuration.

@@ -1130,3 +1130,32 @@ func TestEnsureRunning_HealthyAfterReadOnlyRecovery(t *testing.T) {
 		t.Error("expected DOLT_UNHEALTHY signal to be cleared after recovery")
 	}
 }
+
+func TestDoltServerManagerIsRemote(t *testing.T) {
+	tests := []struct {
+		host string
+		want bool
+	}{
+		{"", false},
+		{"127.0.0.1", false},
+		{"localhost", false},
+		{"::1", false},
+		{"[::1]", false},
+		{"10.0.0.5", true},
+		{"dolt.example.com", true},
+	}
+	for _, tt := range tests {
+		m := &DoltServerManager{
+			config: &DoltServerConfig{Host: tt.host},
+		}
+		if got := m.isRemote(); got != tt.want {
+			t.Errorf("isRemote() with Host=%q = %v, want %v", tt.host, got, tt.want)
+		}
+	}
+
+	// nil config should not be remote
+	m := &DoltServerManager{config: nil}
+	if m.isRemote() {
+		t.Error("isRemote() with nil config should return false")
+	}
+}

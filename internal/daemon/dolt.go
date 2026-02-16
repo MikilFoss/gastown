@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/steveyegge/gastown/internal/doltserver"
 )
 
 const doltCmdTimeout = 15 * time.Second
@@ -173,6 +175,16 @@ func (m *DoltServerManager) IsEnabled() bool {
 // IsExternal returns whether the Dolt server is externally managed.
 func (m *DoltServerManager) IsExternal() bool {
 	return m.config != nil && m.config.External
+}
+
+// isRemote reports whether the configured Dolt server host is remote
+// (not a loopback/local address). Delegates to the shared helper in
+// doltserver to keep the local-address list in one place.
+func (m *DoltServerManager) isRemote() bool {
+	if m.config == nil {
+		return false
+	}
+	return !doltserver.IsLocalAddress(m.config.Host)
 }
 
 // HealthCheckInterval returns the configured health check interval,

@@ -3100,3 +3100,50 @@ func TestFindOrphanedDatabases_EndToEnd(t *testing.T) {
 		t.Errorf("expected 0 orphans after cleanup, got %d", len(orphans))
 	}
 }
+
+// =============================================================================
+// IsLocalAddress / Config.IsRemote tests
+// =============================================================================
+
+func TestIsLocalAddress(t *testing.T) {
+	tests := []struct {
+		host string
+		want bool
+	}{
+		{"", true},
+		{"127.0.0.1", true},
+		{"localhost", true},
+		{"::1", true},
+		{"[::1]", true},
+		{"192.168.1.100", false},
+		{"dolt.example.com", false},
+		{"10.0.0.5", false},
+		{"0.0.0.0", false},
+	}
+	for _, tt := range tests {
+		if got := IsLocalAddress(tt.host); got != tt.want {
+			t.Errorf("IsLocalAddress(%q) = %v, want %v", tt.host, got, tt.want)
+		}
+	}
+}
+
+func TestConfigIsRemote(t *testing.T) {
+	tests := []struct {
+		host string
+		want bool
+	}{
+		{"", false},            // empty = local
+		{"127.0.0.1", false},   // loopback
+		{"localhost", false},   // loopback name
+		{"::1", false},         // IPv6 loopback
+		{"[::1]", false},       // bracketed IPv6 loopback
+		{"10.0.0.5", true},     // private network
+		{"dolt.example.com", true}, // remote hostname
+	}
+	for _, tt := range tests {
+		c := &Config{Host: tt.host}
+		if got := c.IsRemote(); got != tt.want {
+			t.Errorf("Config{Host: %q}.IsRemote() = %v, want %v", tt.host, got, tt.want)
+		}
+	}
+}
