@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS _meta (
 INSERT IGNORE INTO _meta (%s, value) VALUES ('schema_version', '1.0');
 INSERT IGNORE INTO _meta (%s, value) VALUES ('wasteland_name', 'Gas Town Wasteland');
 
-CREATE TABLE IF NOT EXISTS towns (
+CREATE TABLE IF NOT EXISTS rigs (
     handle VARCHAR(255) PRIMARY KEY,
     display_name VARCHAR(255),
     dolthub_org VARCHAR(255),
@@ -219,8 +219,8 @@ CALL DOLT_COMMIT('-m', 'wl post: %s');
 	return doltSQLScriptWithRetry(townRoot, script)
 }
 
-// GetTownHandle returns the town's handle for the posted_by field.
-func GetTownHandle(townRoot string) string {
+// GetRigHandle returns the rig's handle for the posted_by field.
+func GetRigHandle(townRoot string) string {
 	if org := DoltHubOrg(); org != "" {
 		return org
 	}
@@ -228,7 +228,7 @@ func GetTownHandle(townRoot string) string {
 }
 
 // ClaimWanted updates a wanted item's status to claimed.
-func ClaimWanted(townRoot, wantedID, townHandle string) error {
+func ClaimWanted(townRoot, wantedID, rigHandle string) error {
 	esc := func(s string) string {
 		return strings.ReplaceAll(s, "'", "''")
 	}
@@ -242,7 +242,7 @@ CALL DOLT_ADD('-A');
 CALL DOLT_COMMIT('-m', 'wl claim: %s');
 `,
 		WLCommonsDB,
-		esc(townHandle),
+		esc(rigHandle),
 		esc(wantedID),
 		esc(wantedID))
 
@@ -250,7 +250,7 @@ CALL DOLT_COMMIT('-m', 'wl claim: %s');
 }
 
 // SubmitCompletion inserts a completion record and updates the wanted status.
-func SubmitCompletion(townRoot, completionID, wantedID, townHandle, evidence string) error {
+func SubmitCompletion(townRoot, completionID, wantedID, rigHandle, evidence string) error {
 	esc := func(s string) string {
 		return strings.ReplaceAll(s, "'", "''")
 	}
@@ -269,7 +269,7 @@ CALL DOLT_COMMIT('-m', 'wl done: %s');
 		WLCommonsDB,
 		esc(completionID),
 		esc(wantedID),
-		esc(townHandle),
+		esc(rigHandle),
 		esc(evidence),
 		esc(evidence),
 		esc(wantedID),

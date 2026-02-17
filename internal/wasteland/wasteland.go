@@ -1,8 +1,8 @@
 // Package wasteland implements the Wasteland federation protocol for Gas Town.
 //
-// The Wasteland is a federation of Gas Towns via DoltHub. Each town has a
-// sovereign fork of a shared commons database. Towns register by writing
-// to the commons' towns table, and contribute wanted work items and
+// The Wasteland is a federation of Gas Towns via DoltHub. Each rig has a
+// sovereign fork of a shared commons database. Rigs register by writing
+// to the commons' rigs table, and contribute wanted work items and
 // completions through DoltHub's fork/PR/merge primitives.
 //
 // See ~/hop/docs/wasteland/design.md for the full design.
@@ -34,8 +34,8 @@ type Config struct {
 	// LocalDir is the absolute path to the local clone of the fork.
 	LocalDir string `json:"local_dir"`
 
-	// TownHandle is the town's handle in the registry.
-	TownHandle string `json:"town_handle"`
+	// RigHandle is the rig's handle in the registry.
+	RigHandle string `json:"rig_handle"`
 
 	// JoinedAt is when the town joined the wasteland.
 	JoinedAt time.Time `json:"joined_at"`
@@ -158,11 +158,11 @@ func CloneLocally(org, db, targetDir string) error {
 	return nil
 }
 
-// RegisterTown inserts a row into the towns table on the local clone.
+// RegisterRig inserts a row into the rigs table on the local clone.
 // For Phase 1 (wild-west mode), writes directly to main.
-func RegisterTown(localDir string, handle, dolthubOrg, displayName, ownerEmail, gtVersion string) error {
+func RegisterRig(localDir string, handle, dolthubOrg, displayName, ownerEmail, gtVersion string) error {
 	sql := fmt.Sprintf(
-		`INSERT INTO towns (handle, display_name, dolthub_org, owner_email, gt_version, trust_level, registered_at, last_seen) `+
+		`INSERT INTO rigs (handle, display_name, dolthub_org, owner_email, gt_version, trust_level, registered_at, last_seen) `+
 			`VALUES ('%s', '%s', '%s', '%s', '%s', 1, NOW(), NOW()) `+
 			`ON DUPLICATE KEY UPDATE last_seen = NOW(), gt_version = '%s'`,
 		escapeSQLString(handle),
@@ -177,7 +177,7 @@ func RegisterTown(localDir string, handle, dolthubOrg, displayName, ownerEmail, 
 	cmd.Dir = localDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("inserting town registration: %w (%s)", err, strings.TrimSpace(string(output)))
+		return fmt.Errorf("inserting rig registration: %w (%s)", err, strings.TrimSpace(string(output)))
 	}
 
 	// Stage and commit
@@ -187,7 +187,7 @@ func RegisterTown(localDir string, handle, dolthubOrg, displayName, ownerEmail, 
 		return fmt.Errorf("dolt add: %w (%s)", err, strings.TrimSpace(string(output)))
 	}
 
-	commitCmd := exec.Command("dolt", "commit", "-m", fmt.Sprintf("Register town: %s", handle))
+	commitCmd := exec.Command("dolt", "commit", "-m", fmt.Sprintf("Register rig: %s", handle))
 	commitCmd.Dir = localDir
 	output, err = commitCmd.CombinedOutput()
 	if err != nil {

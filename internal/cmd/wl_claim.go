@@ -14,7 +14,7 @@ var wlClaimCmd = &cobra.Command{
 	Short: "Claim a wanted item",
 	Long: `Claim a wanted item on the shared wanted board.
 
-Updates the wanted row: claimed_by=<your town handle>, status='claimed'.
+Updates the wanted row: claimed_by=<your rig handle>, status='claimed'.
 The item must exist and have status='open'.
 
 In wild-west mode (Phase 1), this writes directly to the local wl-commons
@@ -38,9 +38,9 @@ func runWlClaim(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("not in a Gas Town workspace: %w", err)
 	}
 
-	townName, err := workspace.GetTownName(townRoot)
+	rigHandle, err := workspace.GetTownName(townRoot)
 	if err != nil {
-		return fmt.Errorf("getting town handle: %w", err)
+		return fmt.Errorf("getting rig handle: %w", err)
 	}
 
 	if !doltserver.DatabaseExists(townRoot, doltserver.WLCommonsDB) {
@@ -56,12 +56,12 @@ func runWlClaim(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("wanted item %s is not open (status: %s)", wantedID, item.Status)
 	}
 
-	if err := doltserver.ClaimWanted(townRoot, wantedID, townName); err != nil {
+	if err := doltserver.ClaimWanted(townRoot, wantedID, rigHandle); err != nil {
 		return fmt.Errorf("claiming wanted item: %w", err)
 	}
 
 	fmt.Printf("%s Claimed %s\n", style.Bold.Render("✓"), wantedID)
-	fmt.Printf("  Claimed by: %s\n", townName)
+	fmt.Printf("  Claimed by: %s\n", rigHandle)
 	fmt.Printf("  Title: %s\n", item.Title)
 
 	return nil

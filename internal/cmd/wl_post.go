@@ -28,7 +28,7 @@ var wlPostCmd = &cobra.Command{
 Creates a wanted item with a unique w-<hash> ID and inserts it into the
 wl-commons database. Phase 1 (wild-west): direct write to main branch.
 
-The posted_by field is set to the town's DoltHub org (DOLTHUB_ORG) or
+The posted_by field is set to the rig's DoltHub org (DOLTHUB_ORG) or
 falls back to the town directory name.
 
 Examples:
@@ -91,7 +91,7 @@ func runWlPost(cmd *cobra.Command, args []string) error {
 	}
 
 	id := doltserver.GenerateWantedID(wlPostTitle)
-	handle := doltserver.GetTownHandle(townRoot)
+	handle := doltserver.GetRigHandle(townRoot)
 
 	item := &doltserver.WantedItem{
 		ID:          id,
