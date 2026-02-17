@@ -87,11 +87,14 @@ CREATE TABLE IF NOT EXISTS towns (
     handle VARCHAR(255) PRIMARY KEY,
     display_name VARCHAR(255),
     dolthub_org VARCHAR(255),
+    hop_uri VARCHAR(512),
     owner_email VARCHAR(255),
     gt_version VARCHAR(32),
-    trust_level INT DEFAULT 1,
+    trust_level INT DEFAULT 0,
     registered_at TIMESTAMP,
-    last_seen TIMESTAMP
+    last_seen TIMESTAMP,
+    town_type VARCHAR(16) DEFAULT 'human',
+    parent_town VARCHAR(255)
 );
 
 CREATE TABLE IF NOT EXISTS wanted (
@@ -119,23 +122,39 @@ CREATE TABLE IF NOT EXISTS completions (
     wanted_id VARCHAR(64),
     completed_by VARCHAR(255),
     evidence TEXT,
-    completed_at TIMESTAMP
+    validated_by VARCHAR(255),
+    stamp_id VARCHAR(64),
+    parent_completion_id VARCHAR(64),
+    block_hash VARCHAR(64),
+    hop_uri VARCHAR(512),
+    completed_at TIMESTAMP,
+    validated_at TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS stamps (
     id VARCHAR(64) PRIMARY KEY,
-    completion_id VARCHAR(64),
-    stamper VARCHAR(255),
-    value_dimension VARCHAR(32),
-    confidence DECIMAL(3,2),
-    stamped_at TIMESTAMP
+    author VARCHAR(255) NOT NULL,
+    subject VARCHAR(255) NOT NULL,
+    valence JSON NOT NULL,
+    confidence FLOAT DEFAULT 1,
+    severity VARCHAR(16) DEFAULT 'leaf',
+    context_id VARCHAR(64),
+    context_type VARCHAR(32),
+    skill_tags JSON,
+    message TEXT,
+    prev_stamp_hash VARCHAR(64),
+    block_hash VARCHAR(64),
+    hop_uri VARCHAR(512),
+    created_at TIMESTAMP,
+    CONSTRAINT stamps_chk_no_self_stamp CHECK (NOT(author = subject))
 );
 
 CREATE TABLE IF NOT EXISTS badges (
     id VARCHAR(64) PRIMARY KEY,
-    holder VARCHAR(255),
+    town_handle VARCHAR(255),
     badge_type VARCHAR(64),
-    awarded_at TIMESTAMP
+    awarded_at TIMESTAMP,
+    evidence TEXT
 );
 
 CALL DOLT_ADD('-A');
