@@ -250,13 +250,14 @@ func NewGtEventsSource(townRoot string) (*GtEventsSource, error) {
 	return source, nil
 }
 
-// tail follows the file and sends events
+// tail loads recent history then follows the file for new events.
 func (s *GtEventsSource) tail(ctx context.Context) {
 	defer close(s.events)
 
-	// Seek to end for live tailing
-	_, _ = s.file.Seek(0, 2)
+	// Load recent events (last 200 lines) for initial display
+	s.loadRecentEvents()
 
+	// Now tail for new events
 	scanner := bufio.NewScanner(s.file)
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
@@ -274,6 +275,37 @@ func (s *GtEventsSource) tail(ctx context.Context) {
 					default:
 					}
 				}
+			}
+		}
+	}
+}
+
+// loadRecentEvents reads the last N lines of the file and emits them as events.
+func (s *GtEventsSource) loadRecentEvents() {
+	const maxLines = 200
+
+	// Read entire file to find the last N lines
+	if _, err := s.file.Seek(0, 0); err != nil {
+		return
+	}
+
+	var lines []string
+	scanner := bufio.NewScanner(s.file)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+
+	// Take last maxLines
+	start := 0
+	if len(lines) > maxLines {
+		start = len(lines) - maxLines
+	}
+
+	for _, line := range lines[start:] {
+		if event := parseGtEventLine(line); event != nil {
+			select {
+			case s.events <- *event:
+			default:
 			}
 		}
 	}
