@@ -819,6 +819,24 @@ func (g *Git) ListBranches(pattern string) ([]string, error) {
 	return strings.Split(out, "\n"), nil
 }
 
+// ListRemoteBranches returns remote tracking branches matching a pattern.
+// Pattern uses git's pattern matching (e.g., "origin/polecat/*").
+// Returns branch names with the remote prefix (e.g., "origin/polecat/foo").
+func (g *Git) ListRemoteBranches(pattern string) ([]string, error) {
+	args := []string{"branch", "-r", "--list", "--format=%(refname:short)"}
+	if pattern != "" {
+		args = append(args, pattern)
+	}
+	out, err := g.run(args...)
+	if err != nil {
+		return nil, err
+	}
+	if out == "" {
+		return nil, nil
+	}
+	return strings.Split(out, "\n"), nil
+}
+
 // ResetBranch force-updates a branch to point to a ref.
 // This is useful for resetting stale polecat branches to main.
 // NOTE: This uses `git branch -f` which fails on the currently checked-out branch.
