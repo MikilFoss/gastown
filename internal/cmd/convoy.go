@@ -1940,18 +1940,6 @@ type trackedDependency struct {
 	Blocked        bool     `json:"-"`
 }
 
-// extractIssueID strips the external:prefix:id wrapper from bead IDs.
-// bd dep add wraps cross-rig IDs as "external:prefix:id" for routing,
-// but consumers need the raw bead ID for bd show lookups.
-func extractIssueID(id string) string {
-	if strings.HasPrefix(id, "external:") {
-		parts := strings.SplitN(id, ":", 3)
-		if len(parts) == 3 {
-			return parts[2]
-		}
-	}
-	return id
-}
 
 func applyFreshIssueDetails(dep *trackedDependency, details *issueDetails) {
 	dep.Status = details.Status
@@ -1990,7 +1978,7 @@ func getTrackedIssues(townBeads, convoyID string) ([]trackedIssueInfo, error) {
 
 	// Unwrap external:prefix:id format from dep IDs before use
 	for i := range deps {
-		deps[i].ID = extractIssueID(deps[i].ID)
+		deps[i].ID = beads.ExtractIssueID(deps[i].ID)
 	}
 
 	// Refresh status via cross-rig lookup. bd dep list returns status from

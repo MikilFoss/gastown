@@ -2,13 +2,15 @@ package cmd
 
 import (
 	"bytes"
-	"github.com/steveyegge/gastown/internal/config"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/steveyegge/gastown/internal/beads"
+	"github.com/steveyegge/gastown/internal/config"
 )
 
 func writeBDStub(t *testing.T, binDir string, unixScript string, windowsScript string) string {
@@ -106,9 +108,9 @@ func TestExtractIssueID(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := extractIssueID(tt.id)
+			got := beads.ExtractIssueID(tt.id)
 			if got != tt.want {
-				t.Errorf("extractIssueID(%q) = %q, want %q", tt.id, got, tt.want)
+				t.Errorf("ExtractIssueID(%q) = %q, want %q", tt.id, got, tt.want)
 			}
 		})
 	}
