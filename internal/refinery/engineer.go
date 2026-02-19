@@ -19,6 +19,7 @@ import (
 
 	"github.com/steveyegge/gastown/internal/beads"
 	"github.com/steveyegge/gastown/internal/crew"
+	"github.com/steveyegge/gastown/internal/events"
 	"github.com/steveyegge/gastown/internal/git"
 	"github.com/steveyegge/gastown/internal/mail"
 	"github.com/steveyegge/gastown/internal/protocol"
@@ -1439,7 +1440,7 @@ func (e *Engineer) ReleaseMR(mrID string) error {
 //  3. Cleans up stale polecat branches from completed work
 //
 // All operations are best-effort: failures are logged but don't affect merge success.
-func (e *Engineer) postMergeConvoyCheck(_ *MRInfo) {
+func (e *Engineer) postMergeConvoyCheck(mr *MRInfo) {
 	// Find town root from rig path (rig is at ~/gt/<rigname>, town is ~/gt)
 	townRoot := filepath.Dir(e.rig.Path)
 	townBeads := filepath.Join(townRoot, ".beads")
@@ -1460,10 +1461,11 @@ func (e *Engineer) postMergeConvoyCheck(_ *MRInfo) {
 		e.landConvoySwarm(townRoot, convoy)
 	}
 
-	// Step 3: Nudge the deacon to check for stranded convoys that now have
-	// ready work (e.g., after closing one issue, the next issue in the convoy
-	// becomes ready). This avoids waiting for the next patrol cycle (gt-rnzje).
-	e.nudgeDeaconForStrandedConvoys(townRoot)
+	// Step 3: Notify deacon of convoy-eligible merges for immediate feeding.
+	// When the merged MR is part of a convoy, send a structured CONVOY_NEEDS_FEEDING
+	// protocol message so the deacon can immediately feed the next ready issue
+	// instead of waiting for the next patrol cycle (up to 10 minutes).
+	e.notifyDeaconConvoyFeeding(mr)
 
 	// Step 4: Clean up stale branches from completed work.
 	// Prune remote tracking refs that no longer exist on origin.
@@ -1472,18 +1474,25 @@ func (e *Engineer) postMergeConvoyCheck(_ *MRInfo) {
 	}
 }
 
-// nudgeDeaconForStrandedConvoys sends a lightweight nudge to the deacon so it
-// checks for stranded convoys on its next turn boundary. After a merge, the
-// closed issue may unblock the next issue in a convoy — this avoids waiting
-// up to 10 minutes for the deacon's regular patrol cycle.
-func (e *Engineer) nudgeDeaconForStrandedConvoys(townRoot string) {
-	mailCmd := exec.Command("gt", "mail", "send", "deacon/",
-		"-s", "Merge completed — check stranded convoys",
-		"-m", fmt.Sprintf("Refinery (%s) merged a PR. Run `gt convoy stranded` to check for ready work.", e.rig.Name))
-	mailCmd.Dir = townRoot
-	if err := mailCmd.Run(); err != nil {
-		_, _ = fmt.Fprintf(e.output, "[Engineer] Warning: could not nudge deacon for stranded convoys: %v\n", err)
+// notifyDeaconConvoyFeeding sends a CONVOY_NEEDS_FEEDING protocol message to
+// the deacon when the merged MR is part of a convoy. This triggers immediate
+// convoy feeding instead of waiting for the next deacon patrol cycle (up to
+// 10 minutes). An event is also emitted to wake the deacon from await-signal.
+func (e *Engineer) notifyDeaconConvoyFeeding(mr *MRInfo) {
+	if mr.ConvoyID == "" {
+		return
 	}
+
+	msg := protocol.NewConvoyNeedsFeedingMessage(e.rig.Name, mr.ConvoyID, mr.SourceIssue)
+	if err := e.router.Send(msg); err != nil {
+		_, _ = fmt.Fprintf(e.output, "[Engineer] Warning: failed to notify deacon of convoy feeding for %s: %v\n", mr.ConvoyID, err)
+	} else {
+		_, _ = fmt.Fprintf(e.output, "[Engineer] Notified deacon: CONVOY_NEEDS_FEEDING %s\n", mr.ConvoyID)
+	}
+
+	// Emit event to wake deacon from await-signal (router.Send doesn't write
+	// to .events.jsonl, but await-signal watches the events file).
+	_ = events.LogFeed(events.TypeMail, e.rig.Name+"/refinery", events.MailPayload("deacon/", "CONVOY_NEEDS_FEEDING "+mr.ConvoyID))
 }
 
 // convoyInfo holds minimal info about a closed convoy for post-merge processing.

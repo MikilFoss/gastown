@@ -577,6 +577,78 @@ func TestPostMergeConvoyCheck_NoTownBeads(t *testing.T) {
 	}
 }
 
+func TestNotifyDeaconConvoyFeeding_SkipsWhenNoConvoyID(t *testing.T) {
+	// notifyDeaconConvoyFeeding should skip when MR has no ConvoyID
+	tmpDir, err := os.MkdirTemp("", "engineer-notify-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	rigDir := filepath.Join(tmpDir, "testrig")
+	if err := os.MkdirAll(rigDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	r := &rig.Rig{
+		Name: "testrig",
+		Path: rigDir,
+	}
+
+	e := NewEngineer(r)
+	var buf bytes.Buffer
+	e.SetOutput(&buf)
+
+	// MR without ConvoyID — should produce no output
+	mr := &MRInfo{
+		ID:          "gt-test",
+		SourceIssue: "gt-src",
+		ConvoyID:    "", // No convoy
+	}
+	e.notifyDeaconConvoyFeeding(mr)
+
+	if buf.Len() != 0 {
+		t.Errorf("expected no output when ConvoyID empty, got: %s", buf.String())
+	}
+}
+
+func TestNotifyDeaconConvoyFeeding_AttemptsWhenConvoyID(t *testing.T) {
+	// notifyDeaconConvoyFeeding should attempt to send mail when ConvoyID is set.
+	// The send will fail (no beads setup in tmpdir) but we verify the attempt via output.
+	tmpDir, err := os.MkdirTemp("", "engineer-notify-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	rigDir := filepath.Join(tmpDir, "testrig")
+	if err := os.MkdirAll(rigDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	r := &rig.Rig{
+		Name: "testrig",
+		Path: rigDir,
+	}
+
+	e := NewEngineer(r)
+	var buf bytes.Buffer
+	e.SetOutput(&buf)
+
+	mr := &MRInfo{
+		ID:          "gt-test",
+		SourceIssue: "gt-src",
+		ConvoyID:    "hq-cv-abc",
+	}
+	e.notifyDeaconConvoyFeeding(mr)
+
+	output := buf.String()
+	// Should have attempted to send — either success or warning about failure
+	if !strings.Contains(output, "CONVOY_NEEDS_FEEDING") && !strings.Contains(output, "convoy feeding") {
+		t.Errorf("expected output mentioning convoy notification, got: %s", output)
+	}
+}
+
 func TestConvoyInfoDescriptionParsing(t *testing.T) {
 	// Test that landConvoySwarm correctly parses Molecule from description
 	tests := []struct {
