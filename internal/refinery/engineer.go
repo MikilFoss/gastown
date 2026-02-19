@@ -987,13 +987,21 @@ func (e *Engineer) firstOpenBlocker(issue *beads.Issue) string {
 
 // ListReadyMRs returns MRs that are ready for processing:
 // - Not claimed by another worker (checked via assignee field)
-// - Not blocked by an open task (handled by bd ready)
+// - Not blocked by an open task (checked via firstOpenBlocker)
 // Sorted by priority (highest first).
 //
-// This queries beads for merge-request wisps.
+// Uses bd list instead of bd ready because MRs are ephemeral beads and
+// bd ready filters out ephemeral issues (see gt-t5t6y). This matches the
+// pattern used by ListBlockedMRs and ListAllOpenMRs.
 func (e *Engineer) ListReadyMRs() ([]*MRInfo, error) {
-	// Query beads for ready merge-request issues
-	issues, err := e.beads.ReadyWithType("merge-request")
+	// Query beads for all open merge-request issues.
+	// Cannot use ReadyWithType here because bd ready excludes ephemeral beads,
+	// and MRs are ephemeral by design. Use List + manual blocker check instead.
+	issues, err := e.beads.List(beads.ListOptions{
+		Status:   "open",
+		Label:    "gt:merge-request",
+		Priority: -1, // No priority filter
+	})
 	if err != nil {
 		return nil, fmt.Errorf("querying beads for merge-requests: %w", err)
 	}
@@ -1003,6 +1011,11 @@ func (e *Engineer) ListReadyMRs() ([]*MRInfo, error) {
 	for _, issue := range issues {
 		// Skip closed MRs (workaround for bd list not respecting --status filter)
 		if issue.Status != "open" {
+			continue
+		}
+
+		// Skip blocked MRs (replaces bd ready's blocker filtering)
+		if blockedBy := e.firstOpenBlocker(issue); blockedBy != "" {
 			continue
 		}
 
