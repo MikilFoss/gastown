@@ -93,6 +93,36 @@ func ParseRigFields(description string) *RigFields {
 	return fields
 }
 
+// EnsureRigBead returns the rig identity bead, creating it if it doesn't exist.
+// This is idempotent: if the bead already exists, it is returned as-is.
+// Handles races and Dolt query hiccups where Show may fail even when the bead
+// exists (gt-d8681).
+func (b *Beads) EnsureRigBead(name string, fields *RigFields) (*Issue, error) {
+	prefix := "gt"
+	if fields != nil && fields.Prefix != "" {
+		prefix = fields.Prefix
+	}
+	id := RigBeadIDWithPrefix(prefix, name)
+
+	// Try to find existing bead first
+	if existing, err := b.Show(id); err == nil {
+		return existing, nil
+	}
+
+	// Not found — try to create
+	created, createErr := b.CreateRigBead(name, fields)
+	if createErr == nil {
+		return created, nil
+	}
+
+	// Create failed (likely duplicate key from race or Dolt hiccup) — retry Show
+	if existing, err := b.Show(id); err == nil {
+		return existing, nil
+	}
+
+	return nil, fmt.Errorf("ensuring rig bead %s: %w", id, createErr)
+}
+
 // CreateRigBead creates a rig identity bead for tracking rig metadata.
 // The ID format is: <prefix>-rig-<name> (e.g., gt-rig-gastown)
 // The ID is constructed internally from fields.Prefix and name.
