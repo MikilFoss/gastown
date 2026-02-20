@@ -38,8 +38,10 @@ func CheckBeads() (BeadsStatus, string) {
 	}
 	_ = path // bd found
 
-	// Get version (with timeout to prevent hanging on broken bd installs)
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	// Get version (with timeout to prevent hanging on broken bd installs).
+	// 10s is generous but necessary: under heavy CI load (parallel test
+	// packages), even a trivial shell script can take >3s to start.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "bd", "version")
 	output, err := cmd.Output()
