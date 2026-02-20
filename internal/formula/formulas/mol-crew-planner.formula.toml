@@ -1,0 +1,375 @@
+description = """
+Planning crew workflow for researching, designing, and dispatching feature work.
+
+This molecule guides a planning crew through the full lifecycle of turning a
+high-level feature request into concrete, slingable beads with acceptance criteria
+and spot-check specs. The crew researches the codebase, designs the implementation,
+gets mayor approval, creates beads, and slings them to polecats.
+
+## Crew Contract
+
+You are a planning crew lead. You:
+1. Receive a feature request via your hook (pinned molecule + feature bead)
+2. Work through molecule steps using `bd mol current` / `bd close <step>`
+3. Produce a set of concrete beads ready for polecat execution
+4. Sling work to polecats and report to mayor
+5. Complete via `gt done`
+
+**Important:** This formula defines the template. Your molecule already has step
+beads created from it. Use `bd mol current` to find them — do NOT read this file directly.
+
+## Variables
+
+| Variable | Source | Description |
+|----------|--------|-------------|
+| issue | hook_bead | The high-level feature bead ID |
+| feature | hook_bead | The feature name/description |
+
+## Failure Modes
+
+| Situation | Action |
+|-----------|--------|
+| Codebase unclear | Expand research scope, read more files |
+| Design rejected by mayor | Return to design step with feedback |
+| Blocked on external | Mail mayor, mark yourself stuck |
+| Context filling | Use gt handoff to cycle to fresh session |"""
+formula = "mol-crew-planner"
+version = 1
+
+[[steps]]
+id = "research"
+title = "Research codebase for {{feature}}"
+needs = []
+description = """
+Explore the codebase to understand how to implement {{feature}}.
+
+**1. Understand the feature request:**
+```bash
+bd show {{issue}}           # Full feature details
+```
+
+Read the feature description carefully. Identify:
+- What exactly needs to be built?
+- What user-facing behavior changes?
+- What are the constraints?
+
+**2. Search for similar implementations:**
+
+Use Glob, Grep, and Read to explore:
+- Existing code that does something similar
+- Patterns used in the codebase for this kind of feature
+- Test patterns and conventions
+- Configuration and wiring patterns
+
+```bash
+# Example searches — adapt to your feature
+# Find related files
+# Grep for related function names, types, constants
+# Read existing tests to understand conventions
+```
+
+**3. Search the web if needed:**
+
+If the feature involves external libraries or patterns:
+- Search for best practices
+- Check library documentation
+- Look for known pitfalls
+
+**4. Catalog findings:**
+
+Document what you found:
+- **Existing components** that can be reused or extended
+- **Utilities and helpers** available in the codebase
+- **Test patterns** used in similar features
+- **Configuration patterns** for wiring new features
+- **Edge cases** to consider
+- **Potential test cases** (think about these early)
+
+**5. Identify the scope:**
+
+Break the feature into logical units of work:
+- What are the natural boundaries?
+- What can be done in parallel vs must be sequential?
+- What's the minimum viable implementation?
+
+**Exit criteria:** You have a thorough understanding of the codebase context,
+existing patterns, and a rough breakdown of the work needed."""
+
+[[steps]]
+id = "design"
+title = "Design implementation plan for {{feature}}"
+needs = ["research"]
+description = """
+Synthesize research into a concrete implementation plan.
+
+**1. Define the work breakdown:**
+
+For each piece of work (future bead), define:
+- **Scope**: What exactly this piece does
+- **Files to change**: Which files are created/modified
+- **Acceptance criteria**: Concrete, testable conditions for "done"
+- **Spot-check spec**: How to verify the work (type + what to verify)
+- **Test expectations**: What tests should be written/pass
+
+**2. Spot-check spec format:**
+
+Each bead should include a spot-check spec:
+```
+## Spot-Check Spec
+Type: <output|behavior|integration>
+Command: <command to run or action to take>
+Expected: <what the output/behavior should be>
+Checks:
+- <specific thing to verify>
+- <another thing to verify>
+```
+
+Types:
+- **output**: Run a command, check stdout/stderr
+- **behavior**: Interact with the system, verify behavior
+- **integration**: Verify components work together
+
+**3. Consider dependencies:**
+
+- Which beads depend on others?
+- What's the optimal execution order?
+- Can any beads run in parallel?
+
+**4. Consider edge cases:**
+
+- Error handling requirements
+- Backwards compatibility
+- Performance implications
+- Security considerations
+
+**5. Write the full plan:**
+
+Structure your plan as a list of beads, each with:
+```
+### Bead N: <title>
+Scope: <what this bead covers>
+Files: <list of files to create/modify>
+Acceptance Criteria:
+- [ ] <criterion 1>
+- [ ] <criterion 2>
+Test Cases:
+- <test description>
+Spot-Check Spec:
+  Type: <type>
+  Command: <command>
+  Expected: <expected result>
+Dependencies: <bead IDs this depends on, if any>
+```
+
+**6. Present approaches if multiple are viable:**
+
+If there are meaningful design choices, present options with trade-offs.
+The mayor will decide in the approval step.
+
+**Exit criteria:** Complete implementation plan with per-bead scope, files,
+acceptance criteria, spot-check specs, and dependency ordering."""
+
+[[steps]]
+id = "get-approval"
+title = "Get mayor approval for {{feature}} plan"
+needs = ["design"]
+description = """
+Send the full plan to the mayor and wait for approval.
+
+**GATE: This step cannot complete without mayor approval.**
+
+**1. Mail the mayor with your plan:**
+
+```bash
+gt mail send mayor/ -s "PLAN: {{feature}}" -m "Issue: {{issue}}
+
+## Implementation Plan
+
+<your full plan from the design step>
+
+## Summary
+- Total beads: <count>
+- Estimated complexity: <low/medium/high>
+- Dependencies: <any cross-bead dependencies>
+- Risks: <any identified risks>
+
+Awaiting approval to proceed with bead creation."
+```
+
+**2. Poll inbox for reply:**
+
+```bash
+gt mail inbox
+# Look for reply from mayor
+```
+
+Check inbox periodically. The mayor may:
+- **Approve**: Proceed to create-convoy step
+- **Request changes**: Return to design step with feedback
+- **Reject**: Mail mayor for clarification, adjust approach
+
+**3. If feedback received:**
+
+Read the mayor's feedback carefully:
+- If minor adjustments: update the plan and re-submit
+- If major rework needed: return to design step
+- If questions: answer them via mail and re-submit
+
+**4. If waiting too long (>30 minutes):**
+
+```bash
+gt mail send mayor/ -s "PING: Awaiting approval for {{feature}}" \
+  -m "Issue: {{issue}}
+Sent plan for approval. Awaiting response.
+Happy to adjust if feedback is needed."
+```
+
+**Exit criteria:** Mayor has explicitly approved the plan. Do NOT proceed without approval."""
+
+[[steps]]
+id = "create-convoy"
+title = "Create beads and convoy for {{feature}}"
+needs = ["get-approval"]
+description = """
+Create the approved beads with full specs and organize them into a convoy.
+
+**1. Create each bead from the approved plan:**
+
+For each piece of work, create a bead using this template:
+
+```bash
+bd create --type=task --title="<bead title>" --description="dispatched_by: crew-planner
+
+## Scope
+<what this bead covers — clear, scoped description>
+
+## Files
+<list of files to create/modify, with action: Create, Modify, Delete>
+
+## Implementation Details
+<specific implementation guidance, patterns to follow, code references>
+
+## Acceptance Criteria
+- [ ] <concrete, testable criterion>
+- [ ] <another criterion>
+
+## Test Cases
+- <test type>: <what to test and expected result>
+
+## Spot-Check Spec
+Type: <output|behavior|integration>
+Command: <command to run>
+Expected: <expected output or behavior>
+Checks:
+- <specific verification>
+- <another verification>"
+```
+
+**2. Track created bead IDs:**
+
+Note each bead ID as you create them. You'll need these for the convoy
+and for slinging.
+
+**3. Set up dependencies between beads:**
+
+If beads have ordering requirements:
+```bash
+bd dep add <dependent-bead> <dependency-bead>
+```
+
+Remember: `bd dep add A B` means "A needs B" (A is blocked by B).
+
+**4. Create the convoy:**
+
+Link all beads into a convoy:
+```bash
+bd convoy create --title="{{feature}}" --beads=<id1>,<id2>,<id3>,...
+```
+
+**5. Assign dev server ports (if applicable):**
+
+If beads involve dev servers, assign ports from the rig config base,
+offset per bead (e.g., 5173, 5174, 5175...).
+
+Add port info to bead descriptions if relevant.
+
+**6. Verify convoy:**
+
+```bash
+bd convoy show <convoy-id>
+# Verify all beads are present and dependencies are correct
+```
+
+**Exit criteria:** All beads created with full specs, organized into a convoy,
+dependencies set correctly."""
+
+[[steps]]
+id = "sling-work"
+title = "Sling {{feature}} beads to polecats"
+needs = ["create-convoy"]
+description = """
+Dispatch each bead to polecats for implementation.
+
+**1. Sling each bead:**
+
+```bash
+gt sling <bead-id>
+# Repeat for each bead in the convoy
+```
+
+Dev server variables auto-load from rig settings. The sling command
+handles molecule creation and polecat assignment.
+
+**2. Verify slings:**
+
+After slinging, verify each bead was dispatched:
+```bash
+bd show <bead-id>
+# Should show assignee and status change
+```
+
+**3. Report to mayor:**
+
+```bash
+gt mail send mayor/ -s "DISPATCHED: {{feature}}" -m "Issue: {{issue}}
+
+## Convoy Dispatched
+
+Convoy: <convoy-id>
+Beads slung: <count>
+
+| Bead | Title | Assignee |
+|------|-------|----------|
+| <id> | <title> | <polecat> |
+...
+
+All beads have acceptance criteria and spot-check specs.
+Work is in progress."
+```
+
+**4. Update the tracking issue:**
+
+```bash
+bd update {{issue}} --notes "Plan approved and work dispatched.
+Convoy: <convoy-id>
+Beads: <list of bead IDs>
+All slung to polecats."
+```
+
+**5. Sync and complete:**
+
+```bash
+bd sync
+gt done
+```
+
+**Exit criteria:** All beads slung to polecats, mayor notified, tracking issue updated."""
+
+[vars]
+[vars.issue]
+description = "The high-level feature bead ID"
+required = true
+
+[vars.feature]
+description = "The feature name/description"
+required = true
