@@ -274,7 +274,10 @@ func (b *Beads) run(args ...string) ([]byte, error) {
 
 	err := cmd.Run()
 	if err != nil {
-		return nil, b.wrapError(err, stderr.String(), args)
+		// Combine stdout and stderr for error detection: bd show --json writes
+		// error JSON (including "not found") to stdout, not stderr.
+		combined := stderr.String() + " " + stdout.String()
+		return nil, b.wrapError(err, combined, args)
 	}
 
 	// Handle bd exit code 0 bug: when issue not found,
