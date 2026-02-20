@@ -884,6 +884,15 @@ type MergeQueueConfig struct {
 	// StaleClaimTimeout is how long a claimed MR can go without updates before
 	// being considered abandoned and eligible for re-claim (e.g., "30m").
 	StaleClaimTimeout string `json:"stale_claim_timeout,omitempty"`
+
+	// DevServerCommand is the command to start a dev server (e.g., "npm run dev").
+	DevServerCommand string `json:"dev_server_command,omitempty"`
+
+	// DevServerURL is the URL to check for dev server readiness (e.g., "http://localhost:3000").
+	DevServerURL string `json:"dev_server_url,omitempty"`
+
+	// DevServerReadyText is the text to look for in dev server output to confirm readiness.
+	DevServerReadyText string `json:"dev_server_ready_text,omitempty"`
 }
 
 // OnConflict strategy constants.

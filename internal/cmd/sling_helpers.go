@@ -874,6 +874,15 @@ func loadRigCommandVars(townRoot, rig string) []string {
 	if mq.BuildCommand != "" {
 		vars = append(vars, fmt.Sprintf("build_command=%s", mq.BuildCommand))
 	}
+	if mq.DevServerCommand != "" {
+		vars = append(vars, fmt.Sprintf("dev_server_command=%s", mq.DevServerCommand))
+	}
+	if mq.DevServerURL != "" {
+		vars = append(vars, fmt.Sprintf("dev_server_url=%s", mq.DevServerURL))
+	}
+	if mq.DevServerReadyText != "" {
+		vars = append(vars, fmt.Sprintf("dev_server_ready_text=%s", mq.DevServerReadyText))
+	}
 	return vars
 }
 

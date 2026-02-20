@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/steveyegge/gastown/internal/beads"
+	"github.com/steveyegge/gastown/internal/config"
 	"github.com/steveyegge/gastown/internal/doltserver"
 	"github.com/steveyegge/gastown/internal/events"
 	"github.com/steveyegge/gastown/internal/mail"
@@ -494,11 +495,18 @@ func runSling(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Issue #288: Auto-apply mol-polecat-work when slinging bare bead to polecat.
+	// Issue #288: Auto-apply formula when slinging bare bead to polecat.
 	// This ensures polecats get structured work guidance through formula-on-bead.
 	// Use --hook-raw-bead to bypass for expert/debugging scenarios.
+	// Uses rig's DefaultFormula if configured, falls back to mol-polecat-work-verified.
 	if formulaName == "" && !slingHookRawBead && strings.Contains(targetAgent, "/polecats/") {
-		formulaName = "mol-polecat-work"
+		if parts := strings.SplitN(targetAgent, "/", 2); len(parts) >= 1 && parts[0] != "" {
+			rigPath := filepath.Join(townRoot, parts[0])
+			formulaName = config.GetDefaultFormula(rigPath)
+		}
+		if formulaName == "" {
+			formulaName = "mol-polecat-work-verified"
+		}
 		fmt.Printf("  Auto-applying %s for polecat work...\n", formulaName)
 	}
 
