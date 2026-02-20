@@ -1461,6 +1461,33 @@ func (d *Daemon) checkPolecatHealth(rigName, polecatName string) {
 		return
 	}
 
+	// Spawning guard: skip polecats being actively started by gt sling.
+	// agent_state='spawning' means the polecat bead was created (with hook_bead
+	// set atomically) but the tmux session hasn't been launched yet. Restarting
+	// here would create a second Claude process alongside the one gt sling is
+	// about to start, causing the double-spawn bug (issue #1752).
+	//
+	// Time-bound: only skip if the bead was updated recently (within 5 minutes).
+	// If gt sling crashed during spawn, the polecat would be stuck in 'spawning'
+	// indefinitely. The Witness patrol also catches spawning-as-zombie, but a
+	// time-bound here makes the daemon self-sufficient for this edge case.
+	if info.State == "spawning" {
+		if updatedAt, err := time.Parse(time.RFC3339, info.LastUpdate); err == nil {
+			if time.Since(updatedAt) < 5*time.Minute {
+				d.logger.Printf("Skipping restart for %s/%s: agent_state=spawning (gt sling in progress, updated %s ago)",
+					rigName, polecatName, time.Since(updatedAt).Round(time.Second))
+				return
+			}
+			d.logger.Printf("Spawning guard expired for %s/%s: agent_state=spawning but last updated %s ago (>5m), proceeding with crash detection",
+				rigName, polecatName, time.Since(updatedAt).Round(time.Second))
+		} else {
+			// Can't parse timestamp — be safe, skip restart during spawning
+			d.logger.Printf("Skipping restart for %s/%s: agent_state=spawning (gt sling in progress, unparseable updated_at)",
+				rigName, polecatName)
+			return
+		}
+	}
+
 	// TOCTOU guard: re-verify session is still dead before restarting.
 	// Between the initial check and now, the session may have been restarted
 	// by another heartbeat cycle, witness, or the polecat itself.

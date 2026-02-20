@@ -723,8 +723,8 @@ func (d *Daemon) closeMessage(id string) error {
 type AgentBeadInfo struct {
 	ID         string `json:"id"`
 	Type       string `json:"issue_type"`
-	State      string // Parsed from description: agent_state
-	HookBead   string // Parsed from description: hook_bead
+	State      string // From DB column (agent_state), fallback to description
+	HookBead   string // From DB column (hook_bead)
 	RoleType   string // Parsed from description: role_type
 	Rig        string // Parsed from description: rig
 	LastUpdate string `json:"updated_at"`
@@ -796,9 +796,18 @@ func (d *Daemon) getAgentBeadInfo(agentBeadID string) (*AgentBeadInfo, error) {
 	}
 
 	if fields != nil {
-		info.State = fields.AgentState
 		info.RoleType = fields.RoleType
 		info.Rig = fields.Rig
+	}
+
+	// Use AgentState from database column directly (not from description).
+	// UpdateAgentState updates the DB column but not the description text,
+	// so the description can contain stale state (e.g., "spawning" after
+	// the polecat has transitioned to "working"). Fall back to description
+	// only if the DB column is empty (legacy beads).
+	info.State = issue.AgentState
+	if info.State == "" && fields != nil {
+		info.State = fields.AgentState
 	}
 
 	// Use HookBead from database column directly (not from description)
